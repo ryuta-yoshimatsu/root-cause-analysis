@@ -10,7 +10,7 @@ WHAT IS THE BUSINESS PROBLEM ADDRESSED BY THIS SOLUTION
 IMAGE TO REFERENCE ARCHITECTURE
 
 ## Authors
-<john.doe@databricks.com>
+<ryuta.yoshimatsu@databricks.com>
 
 ## Project support 
 
