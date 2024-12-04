@@ -322,7 +322,3 @@ mlflow_client.set_registered_model_alias(registered_model_name, "champion", mode
 # MAGIC |----------------------------------------|-------------------------|------------|-----------------------------------------------------|
 # MAGIC | dowhy | A Python library for causal inference that supports explicit modeling and testing of causal assumptions | MIT | https://pypi.org/project/dowhy/
 # MAGIC | networkx | A Python package for the creation, manipulation, and study of the structure, dynamics, and functions of complex networks. | BSD License | https://pypi.org/project/networkx/
-
-# COMMAND ----------
-
-

@@ -271,7 +271,7 @@ print(result["predictions"][0])
 
 # COMMAND ----------
 
-func_delete_model_serving_endpoint(model_serving_endpoint_name)
+#func_delete_model_serving_endpoint(model_serving_endpoint_name)
 
 # COMMAND ----------
 
