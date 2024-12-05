@@ -1,10 +1,10 @@
 # Databricks notebook source
-# MAGIC %pip install dowhy networkx --quiet
+# MAGIC %pip install -r ../requirements.txt --quiet
 # MAGIC dbutils.library.restartPython()
 
 # COMMAND ----------
 
-# MAGIC %run ./99_utils
+# MAGIC %run ../99_utils
 
 # COMMAND ----------
 
@@ -56,7 +56,7 @@ _ = spark.sql(f"CREATE SCHEMA IF NOT EXISTS {catalog}.{db}")
 # COMMAND ----------
 
 from IPython.display import Image
-Image('images/online-shop-graph.png')
+Image('../images/online-shop-graph.png')
 
 # COMMAND ----------
 

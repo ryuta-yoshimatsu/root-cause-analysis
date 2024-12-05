@@ -21,9 +21,9 @@ def clean_df(df):
 def prepare_data(catalog, db):
   
   # Read into Pandas Dataframe
-  data_2021 = pd.read_csv('data/2021 Data.csv')
-  data_first_day_2022 = pd.read_csv('data/2022 First Day.csv')
-  data_first_quarter_2022 = pd.read_csv('data/2022 First Quarter.csv')
+  data_2021 = pd.read_csv('../data/2021 Data.csv')
+  data_first_day_2022 = pd.read_csv('../data/2022 First Day.csv')
+  data_first_quarter_2022 = pd.read_csv('../data/2022 First Quarter.csv')
 
   # Create Spark DataFrame
   data_2021 = clean_df(data_2021)
