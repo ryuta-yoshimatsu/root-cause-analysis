@@ -15,7 +15,7 @@
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC <img src="images/microservice-architecture-dependencies.png" width="800"/>
+# MAGIC <img src="../images/microservice-architecture-dependencies.png" width="800"/>
 
 # COMMAND ----------
 
@@ -33,7 +33,7 @@
 
 import pandas as pd
 
-normal_data = pd.read_csv("data/rca_microservice_architecture_latencies.csv")
+normal_data = pd.read_csv("../data/rca_microservice_architecture_latencies.csv")
 normal_data.head()
 
 # COMMAND ----------
@@ -150,7 +150,7 @@ print(gcm.evaluate_causal_model(causal_model, normal_data))
 
 # COMMAND ----------
 
-outlier_data = pd.read_csv("data/rca_microservice_architecture_anomaly.csv")
+outlier_data = pd.read_csv("../data/rca_microservice_architecture_anomaly.csv")
 outlier_data
 
 # COMMAND ----------
@@ -223,7 +223,7 @@ bar_plot(median_attribs, uncertainty_attribs, 'Attribution Score')
 
 # COMMAND ----------
 
-outlier_data = pd.read_csv("data/rca_microservice_architecture_anomaly_1000.csv")
+outlier_data = pd.read_csv("../data/rca_microservice_architecture_anomaly_1000.csv")
 outlier_data.head()
 
 # COMMAND ----------
@@ -273,7 +273,7 @@ bar_plot(median_attribs, uncertainty_attribs, 'Attribution Score')
 # MAGIC
 # MAGIC Next, let us imagine a scenario where permanent degradation has happened as in scenario 2 and we've successfully identified `Caching Service` as the root cause. Furthermore, we figured out that a recent deployment of the `Caching Service` contained a bug that is causing the overloaded hosts. A proper fix must be deployed, or the previous deployment must be rolled back. But, in the meantime, could we mitigate the situation by shifting over some resources from `Shipping Service` to `Caching Service`? And would that help? Before doing it in reality, let us simulate it first and see whether it improves the situation.
 # MAGIC
-# MAGIC <img src="shifting-resources.png" width="600"/>
+# MAGIC <img src="../shifting-resources.png" width="600"/>
 # MAGIC
 # MAGIC Let’s perform an intervention where we say we can reduce the average time of `Caching Service` by 1s. But at the same time we buy this speed-up by an average slow-down of 2s in `Shipping Cost Service`.
 

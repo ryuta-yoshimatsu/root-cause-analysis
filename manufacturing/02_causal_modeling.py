@@ -1,4 +1,10 @@
 # Databricks notebook source
+# MAGIC %sh 
+# MAGIC sudo apt-get -qq update
+# MAGIC sudo apt-get -y -qq install graphviz libgraphviz-dev
+
+# COMMAND ----------
+
 # MAGIC %pip install -r ../requirements.txt --quiet
 # MAGIC dbutils.library.restartPython()
 
@@ -8,9 +14,9 @@
 
 # COMMAND ----------
 
-catalog = "ryuta"
-db = "causal"
-model = "root_cause_analysis_scm"
+catalog = "causal_solacc"
+db = "rca"
+model = "scm_manufacturing"
 
 # Make sure that the catalog exists
 _ = spark.sql(f"CREATE CATALOG IF NOT EXISTS {catalog}")

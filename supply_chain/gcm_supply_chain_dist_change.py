@@ -11,7 +11,7 @@
 # MAGIC
 # MAGIC Suppose that each week a retailer submits purchase orders (POs) to vendors taking into account future demands for products and capacity constraints to consider for demands. The vendors will then confirm whether they can fulfill some or all of the retailer's purchase orders. Once confirmed by the vendors and agreed by the retailer, products are then sent to the retailer. All of the confirmed POs, however, may not arrive at once.
 # MAGIC
-# MAGIC <img src="images/supply-chain.png" width="800"/>
+# MAGIC <img src="../images/supply-chain.png" width="800"/>
 
 # COMMAND ----------
 
@@ -24,7 +24,7 @@
 
 import pandas as pd
 
-data = pd.read_csv('data/supply_chain_week_over_week.csv')
+data = pd.read_csv('../data/supply_chain_week_over_week.csv')
 
 # COMMAND ----------
 

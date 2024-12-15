@@ -16,9 +16,9 @@ client = mlflow.tracking.MlflowClient()
 
 # COMMAND ----------
 
-catalog = "ryuta"
-db = "causal"
-model = "root_cause_analysis_scm"
+catalog = "causal_solacc"
+db = "rca"
+model = "scm_manufacturing"
 log_schema = "log" # A schema within the catalog where the inferece log is going to be stored 
 model_name = f"{catalog}.{db}.{model}"  # An existing model in model registry, may have multiple versions
 model_serving_endpoint_name = f"root-cause-analysis-{model}"
