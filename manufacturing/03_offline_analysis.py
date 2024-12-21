@@ -32,7 +32,7 @@ mlflow_client = MlflowClient()
 registered_model_name = f"{catalog}.{db}.{model}"
 model = f"models:/{registered_model_name}@Champion"
 
-# Load model as a PyFuncModel.
+# Load model as a PyFuncModel
 loaded_model = mlflow.pyfunc.load_model(model)
 loaded_scm = loaded_model.unwrap_python_model().load_scm()
 loaded_causal_graph = loaded_model.unwrap_python_model().load_causal_graph()
@@ -66,13 +66,13 @@ gcm.draw_samples(loaded_scm, num_samples=10)
 
 # COMMAND ----------
 
-data_2021 = spark.read.table(f"{catalog}.{db}.data_2021")
-data_2021 = data_2021.toPandas().set_index("Date")
-data_2021.head()
+data = spark.read.table(f"{catalog}.{db}.data_manufacturing")
+data = data.toPandas()
+data.head()
 
 # COMMAND ----------
 
-data_2021['Profit'].plot(ylabel='Profit in $', figsize=(15,5), rot=45)
+data['quality'].plot(ylabel='quality', figsize=(15,5), rot=45)
 
 # COMMAND ----------
 
@@ -81,7 +81,7 @@ data_2021['Profit'].plot(ylabel='Profit in $', figsize=(15,5), rot=45)
 
 # COMMAND ----------
 
-data_2021['Profit'].std()
+data['quality'].std()
 
 # COMMAND ----------
 
@@ -99,7 +99,7 @@ def convert_to_percentage(value_dictionary):
     return {k: abs(v) / total_absolute_sum * 100 for k, v in value_dictionary.items()}
 
 
-arrow_strengths = gcm.arrow_strength(loaded_scm, target_node='Profit')
+arrow_strengths = gcm.arrow_strength(loaded_scm, target_node='quality')
 
 plot(loaded_causal_graph, 
      causal_strengths=convert_to_percentage(arrow_strengths), 
@@ -122,12 +122,11 @@ arrow_strengths
 
 # COMMAND ----------
 
-iccs = gcm.intrinsic_causal_influence(loaded_scm, target_node='Profit', num_samples_randomization=500)
+iccs = gcm.intrinsic_causal_influence(loaded_scm, target_node='quality', num_samples_randomization=500)
 
 # COMMAND ----------
 
 from dowhy.utils import bar_plot
-
 bar_plot(convert_to_percentage(iccs), ylabel='Variance attribution in %')
 
 # COMMAND ----------
@@ -139,8 +138,8 @@ bar_plot(convert_to_percentage(iccs), ylabel='Variance attribution in %')
 
 import matplotlib.pyplot as plt
 
-data_2021['Profit'].plot(ylabel='Profit in $', figsize=(15,5), rot=45)
-plt.vlines(np.arange(0, data_2021.shape[0])[data_2021['Shopping_Event']], data_2021['Profit'].min(), data_2021['Profit'].max(), linewidth=10, alpha=0.3, color='r')
+data['quality'].plot(ylabel='Quality', figsize=(15,5), rot=45)
+plt.vlines(np.arange(0, data.shape[0])[data['Shopping_Event']], data['quality'].min(), data['quality'].max(), linewidth=10, alpha=0.3, color='r')
 
 # COMMAND ----------
 

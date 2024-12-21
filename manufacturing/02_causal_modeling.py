@@ -26,8 +26,27 @@ _ = spark.sql(f"CREATE SCHEMA IF NOT EXISTS {catalog}.{db}")
 
 # COMMAND ----------
 
+import mlflow
+import pickle
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+import dowhy
+import networkx as nx
+
+np.random.seed(1)
+
+# Get the current user name
+current_user_name = spark.sql("SELECT current_user()").collect()[0][0]
+
+# Set the experiment name
+experiment_name = f"/Users/{current_user_name}/rca_manufacturing"
+mlflow.set_experiment(experiment_name)
+
+# COMMAND ----------
+
 # MAGIC %md
-# MAGIC # Causal Attributions and Root-Cause Analysis in an Online Shop
+# MAGIC # Causal Attributions and Root-Cause Analysis in a Manufacturing Assembly Line
 
 # COMMAND ----------
 
@@ -62,7 +81,7 @@ _ = spark.sql(f"CREATE SCHEMA IF NOT EXISTS {catalog}.{db}")
 # COMMAND ----------
 
 from IPython.display import Image
-Image('../images/online-shop-graph.png')
+Image('../images/manufacturing-process-A-simplified.png')
 
 # COMMAND ----------
 
@@ -110,21 +129,28 @@ Image('../images/online-shop-graph.png')
 
 # COMMAND ----------
 
-import networkx as nx
+# Find all the runs from the prior notebook for causal discovery
+client = mlflow.MlflowClient()
+experiment = mlflow.get_experiment_by_name(experiment_name)
+discovery_runs = client.search_runs(
+    experiment_ids=[experiment.experiment_id], 
+    filter_string="attributes.run_name='causal_graph'",
+    order_by=["start_time DESC"],
+    max_results=1,
+    )
 
-causal_graph = nx.DiGraph([('Page_Views', 'Sold_Units'),
-                           ('Revenue', 'Profit'),
-                           ('Unit_Price', 'Sold_Units'),
-                           ('Unit_Price', 'Revenue'),
-                           ('Shopping_Event', 'Page_Views'),
-                           ('Shopping_Event', 'Sold_Units'),
-                           ('Shopping_Event', 'Unit_Price'),
-                           ('Shopping_Event', 'Ad_Spend'),
-                           ('Ad_Spend', 'Page_Views'),
-                           ('Ad_Spend', 'Operational_Cost'),
-                           ('Sold_Units', 'Revenue'),
-                           ('Sold_Units', 'Operational_Cost'),
-                           ('Operational_Cost', 'Profit')])
+# Make sure there is at least one run available
+assert len(discovery_runs) == 1, "please run the previous notebook (01_causal_graph) from the beginning at least once"
+
+# The only result should be the latest based on our search_runs call
+latest_discovery_run = discovery_runs[0]
+latest_discovery_run.info.artifact_uri
+
+# Load the graph artifact from the run
+local_path = mlflow.artifacts.download_artifacts(latest_discovery_run.info.artifact_uri + "/graph/causal_graph.pickle")
+
+with open(local_path, "rb") as f:
+    causal_graph = pickle.load(f)
 
 # COMMAND ----------
 
@@ -133,19 +159,7 @@ causal_graph = nx.DiGraph([('Page_Views', 'Sold_Units'),
 
 # COMMAND ----------
 
-import dowhy
-from dowhy.utils import plot
-plot(causal_graph)
-
-# COMMAND ----------
-
-import json
-data = nx.node_link_data(causal_graph)
-causal_graph_json = json.dumps(data)
-
-# Writing to causal_graph as json
-with open("/databricks/driver/causal_graph.json", "w") as outfile:
-    outfile.write(causal_graph_json)
+dowhy.gcm.util.plot(causal_graph, figure_size=(20, 20))
 
 # COMMAND ----------
 
@@ -154,16 +168,11 @@ with open("/databricks/driver/causal_graph.json", "w") as outfile:
 
 # COMMAND ----------
 
-# Custom function defined in 99_utils - loads data from csv files and write them to delta
-prepare_data(catalog, db)
-
-# COMMAND ----------
-
-table_name = f"{catalog}.{db}.data_2021"
+table_name = f"{catalog}.{db}.data_manufacturing"
 version_query = f"DESCRIBE HISTORY {table_name}"
 version = spark.sql(version_query).collect()[0][0]
 sdf = spark.read.format("delta").option("versionAsOf", version).table(table_name)
-pdf = sdf.toPandas().set_index("Date")
+pdf = sdf.toPandas()
 pdf.head()
 
 # COMMAND ----------
@@ -229,7 +238,7 @@ print(gcm.evaluate_causal_model(
   scm,
   pdf, 
   compare_mechanism_baselines=True, 
-  evaluate_invertibility_assumptions=False))
+  evaluate_invertibility_assumptions=True))
 
 # COMMAND ----------
 
@@ -276,14 +285,14 @@ from mlflow.models import infer_signature
 input_example = pdf.iloc[[0]]
 signature = infer_signature(
     model_input=input_example, 
-    model_output=pd.DataFrame(gcm.attribute_anomalies(scm, target_node="Profit", anomaly_samples=input_example)),
+    model_output=pd.DataFrame(gcm.attribute_anomalies(scm, target_node="quality", anomaly_samples=input_example)),
     )
 registered_model_name = f"{catalog}.{db}.{model}"
 
 with mlflow.start_run(run_name="causal_model") as run:
     mlflow.pyfunc.log_model(
         "model",
-        python_model=SCM(scm, causal_graph, "Profit"),
+        python_model=SCM(scm, causal_graph, "quality"),
         pip_requirements=[
             "dowhy==" + dowhy.__version__, 
             "networkx==" + nx.__version__,
@@ -297,7 +306,7 @@ with mlflow.start_run(run_name="causal_model") as run:
             "override_models": "True", 
             "quality": "gcm.auto.AssignmentQuality.GOOD",
         }})
-    mlflow.log_artifact("/databricks/driver/causal_graph.json", artifact_path="causal_graph")
+    mlflow.log_artifact(local_path, artifact_path="causal_graph")
     mlflow.log_input(mlflow.data.from_spark(df=sdf, table_name=table_name, version=version), context="training")
 
 # COMMAND ----------

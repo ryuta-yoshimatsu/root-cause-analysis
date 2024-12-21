@@ -28,7 +28,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import dowhy
 import networkx as nx
-#from scipy.special import expit, logit
 
 np.random.seed(1)
 
@@ -42,7 +41,7 @@ mlflow.set_experiment(experiment_name)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Data Generation --> Stays in 01_causal_graph
+# MAGIC ## Data Generation
 
 # COMMAND ----------
 
@@ -158,7 +157,7 @@ X['quality'] = linear(X,
     dependency = dependencies['quality'],
     const = 80,
     loc = 0,
-    scale = 5,
+    scale = 0.01,
     )
 
 spark.createDataFrame(X).write.format("delta").mode("overwrite").saveAsTable(f"{catalog}.{db}.data_manufacturing")
@@ -168,15 +167,11 @@ display(X)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Causal Graph Generation --> Stays in 01_causal_graph
+# MAGIC ## Causal Graph Generation
 
 # COMMAND ----------
 
 from IPython.display import Image, display
-display(Image('../images/manufacturing-processes.png', width=750, height=450), display_id='centered_image')
-
-# COMMAND ----------
-
 Image('../images/manufacturing-process-A.png')
 
 # COMMAND ----------
@@ -203,100 +198,8 @@ with mlflow.start_run(run_name="causal_graph") as run:
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Causal Modeling --> Goes to 02_causal_modeling
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ### Read dataset
-
-# COMMAND ----------
-
-table_name = f"{catalog}.{db}.data_manufacturing"
-sdf = spark.read.format("delta").table(table_name)
-pdf = sdf.toPandas()
-pdf.head()
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ### Load graph from mlflow
-
-# COMMAND ----------
-
-# Find all the runs from the prior notebook for causal discovery
-client = mlflow.MlflowClient()
-experiment = mlflow.get_experiment_by_name(experiment_name)
-discovery_runs = client.search_runs(
-    experiment_ids=[experiment.experiment_id], 
-    filter_string="attributes.run_name='causal_graph'",
-    order_by=["start_time DESC"],
-    max_results=1,
-    )
-
-# Make sure there is at least one run available
-assert len(discovery_runs) == 1, "please run this notebook from the beginning at least once"
-
-# The only result should be the latest based on our search_runs call
-latest_discovery_run = discovery_runs[0]
-latest_discovery_run.info.artifact_uri
-
-# Load the graph artifact from the run
-local_path = mlflow.artifacts.download_artifacts(latest_discovery_run.info.artifact_uri + "/graph/causal_graph.pickle")
-
-with open(local_path, "rb") as f:
-    causal_graph = pickle.load(f)
-
-# COMMAND ----------
-
-dowhy.gcm.util.plot(causal_graph, figure_size=(20, 20))
-
-# COMMAND ----------
-
-from dowhy import gcm
-
-# Create the structural causal model object
-scm = gcm.StructuralCausalModel(causal_graph)
-
-# Automatically assign generative models to each node based on the given data
-auto_assignment_summary = gcm.auto.assign_causal_mechanisms(
-  scm, 
-  pdf, 
-  override_models=True, 
-  quality=gcm.auto.AssignmentQuality.GOOD
-  )
-
-# COMMAND ----------
-
-print(auto_assignment_summary)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ### Fit data to graph
-
-# COMMAND ----------
-
-gcm.fit(scm, pdf)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ### Evaluate the fitted graph
-
-# COMMAND ----------
-
-print(gcm.evaluate_causal_model(
-  scm,
-  pdf, 
-  compare_mechanism_baselines=True, 
-  evaluate_invertibility_assumptions=True))
-
-# COMMAND ----------
-
-# MAGIC %md
 # MAGIC
-# MAGIC ## Appendix: Causal Discovery (WIP) --> Stays in 01_causal_graph
+# MAGIC ## Appendix: Causal Discovery (WIP)
 
 # COMMAND ----------
 
@@ -307,7 +210,3 @@ cg = pc(np.vstack(X.to_numpy()), node_names=X.columns)
 
 # visualization using pydot
 cg.draw_pydot_graph()
-
-# COMMAND ----------
-
-
