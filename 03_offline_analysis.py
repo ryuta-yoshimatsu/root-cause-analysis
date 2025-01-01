@@ -1,12 +1,22 @@
 # Databricks notebook source
-# MAGIC %pip install -r ../requirements.txt --quiet
+# MAGIC %sh 
+# MAGIC sudo apt-get -qq update
+# MAGIC sudo apt-get -y -qq install graphviz libgraphviz-dev
+
+# COMMAND ----------
+
+# MAGIC %pip install -r ./requirements.txt --quiet
 # MAGIC dbutils.library.restartPython()
 
 # COMMAND ----------
 
-catalog = "ryuta"
-db = "causal"
-model = "root_cause_analysis_scm"
+# MAGIC %run ./99_utils
+
+# COMMAND ----------
+
+catalog = "causal_solacc"
+db = "rca"
+model = "scm_manufacturing"
 
 # COMMAND ----------
 
@@ -19,6 +29,7 @@ model = "root_cause_analysis_scm"
 import mlflow
 from mlflow import MlflowClient
 import pandas as pd
+import numpy as np
 
 mlflow.set_registry_uri("databricks-uc")
 mlflow_client = MlflowClient()
@@ -26,7 +37,7 @@ mlflow_client = MlflowClient()
 registered_model_name = f"{catalog}.{db}.{model}"
 model = f"models:/{registered_model_name}@Champion"
 
-# Load model as a PyFuncModel.
+# Load model as a PyFuncModel
 loaded_model = mlflow.pyfunc.load_model(model)
 loaded_scm = loaded_model.unwrap_python_model().load_scm()
 loaded_causal_graph = loaded_model.unwrap_python_model().load_causal_graph()
@@ -60,13 +71,13 @@ gcm.draw_samples(loaded_scm, num_samples=10)
 
 # COMMAND ----------
 
-data_2021 = spark.read.table(f"{catalog}.{db}.data_2021")
-data_2021 = data_2021.toPandas().set_index("Date")
-data_2021.head()
+train = spark.read.table(f"{catalog}.{db}.data_manufacturing")
+train = train.toPandas()
+train.head()
 
 # COMMAND ----------
 
-data_2021['Profit'].plot(ylabel='Profit in $', figsize=(15,5), rot=45)
+train['quality'].plot(ylabel='quality', figsize=(15,5), rot=45)
 
 # COMMAND ----------
 
@@ -75,7 +86,7 @@ data_2021['Profit'].plot(ylabel='Profit in $', figsize=(15,5), rot=45)
 
 # COMMAND ----------
 
-data_2021['Profit'].std()
+train['quality'].std()
 
 # COMMAND ----------
 
@@ -93,15 +104,11 @@ def convert_to_percentage(value_dictionary):
     return {k: abs(v) / total_absolute_sum * 100 for k, v in value_dictionary.items()}
 
 
-arrow_strengths = gcm.arrow_strength(loaded_scm, target_node='Profit')
+arrow_strengths = gcm.arrow_strength(loaded_scm, target_node='quality')
 
 plot(loaded_causal_graph, 
      causal_strengths=convert_to_percentage(arrow_strengths), 
      figure_size=[15, 10])
-
-# COMMAND ----------
-
-arrow_strengths
 
 # COMMAND ----------
 
@@ -116,12 +123,11 @@ arrow_strengths
 
 # COMMAND ----------
 
-iccs = gcm.intrinsic_causal_influence(loaded_scm, target_node='Profit', num_samples_randomization=500)
+iccs = gcm.intrinsic_causal_influence(loaded_scm, target_node='quality', num_samples_randomization=500)
 
 # COMMAND ----------
 
 from dowhy.utils import bar_plot
-
 bar_plot(convert_to_percentage(iccs), ylabel='Variance attribution in %')
 
 # COMMAND ----------
@@ -131,10 +137,10 @@ bar_plot(convert_to_percentage(iccs), ylabel='Variance attribution in %')
 
 # COMMAND ----------
 
-import matplotlib.pyplot as plt
-
-data_2021['Profit'].plot(ylabel='Profit in $', figsize=(15,5), rot=45)
-plt.vlines(np.arange(0, data_2021.shape[0])[data_2021['Shopping_Event']], data_2021['Profit'].min(), data_2021['Profit'].max(), linewidth=10, alpha=0.3, color='r')
+#import matplotlib.pyplot as plt
+#
+#data['quality'].plot(ylabel='Quality', figsize=(15,5), rot=45)
+#plt.vlines(np.arange(0, data.shape[0])[data['Shopping_Event']], data['quality'].min(), data['quality'].max(), linewidth=10, alpha=0.3, color='r')
 
 # COMMAND ----------
 
@@ -153,18 +159,16 @@ plt.vlines(np.arange(0, data_2021.shape[0])[data_2021['Shopping_Event']], data_2
 
 # COMMAND ----------
 
-data_first_day_2022 = spark.read.table(f"{catalog}.{db}.data_first_day_2022")
-data_first_day_2022 = data_first_day_2022.toPandas().set_index("Date")
-(data_first_day_2022['Sold_Units'][0] / data_2021['Sold_Units'][0] - 1) * 100
+from dowhy import gcm
+np.random.seed(1)
+
+new_batch = gcm.draw_samples(loaded_scm, num_samples=100)
+display(new_batch)
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC Surprisingly, we only increased the number of sold units by ~19%. This will certainly impact the profit given that the revenue is much smaller than expected. Let us compare it with the previous year at the same time:
-
-# COMMAND ----------
-
-(1 - data_first_day_2022['Profit'][0] / data_2021['Profit'][0]) * 100
 
 # COMMAND ----------
 
@@ -175,12 +179,44 @@ data_first_day_2022 = data_first_day_2022.toPandas().set_index("Date")
 
 # COMMAND ----------
 
-data_first_day_2022
+defects_dimensions = new_batch[new_batch['dimensions'] == 1]
+display(defects_dimensions)
 
 # COMMAND ----------
 
-attributions = gcm.attribute_anomalies(loaded_scm, target_node='Profit', anomaly_samples=data_first_day_2022)
+attributions = gcm.attribute_anomalies(
+  loaded_scm, 
+  target_node='quality', 
+  anomaly_samples=pd.DataFrame([defects_dimensions.iloc[0]])
+  )
+bar_plot({k: v[0] for k, v in attributions.items()}, ylabel='Anomaly attribution score')
 
+# COMMAND ----------
+
+defects_torque_checks = new_batch[new_batch['torque_checks'] == 1]
+display(defects_torque_checks)
+
+# COMMAND ----------
+
+attributions = gcm.attribute_anomalies(
+  loaded_scm, 
+  target_node='quality', 
+  anomaly_samples=pd.DataFrame([defects_torque_checks.iloc[0]])
+  )
+bar_plot({k: v[0] for k, v in attributions.items()}, ylabel='Anomaly attribution score')
+
+# COMMAND ----------
+
+defects_visual_inspection = new_batch[new_batch['visual_inspection'] == 1]
+display(defects_visual_inspection)
+
+# COMMAND ----------
+
+attributions = gcm.attribute_anomalies(
+  loaded_scm, 
+  target_node='quality', 
+  anomaly_samples=pd.DataFrame([defects_visual_inspection.iloc[0]])
+  )
 bar_plot({k: v[0] for k, v in attributions.items()}, ylabel='Anomaly attribution score')
 
 # COMMAND ----------
@@ -199,14 +235,16 @@ mlflow.autolog(disable=True)
 # COMMAND ----------
 
 gcm.config.disable_progress_bars()  # We turn off the progress bars here to reduce the number of outputs.
-
 median_attributions, confidence_intervals, = gcm.confidence_intervals(
-    gcm.fit_and_compute(gcm.attribute_anomalies,
-                        loaded_scm,
-                        bootstrap_training_data=data_2021,
-                        target_node='Profit',
-                        anomaly_samples=data_first_day_2022),
-    num_bootstrap_resamples=10)
+    gcm.fit_and_compute(
+        gcm.attribute_anomalies,
+        loaded_scm,
+        bootstrap_training_data=train,
+        target_node='quality',
+        anomaly_samples=pd.DataFrame([defects_dimensions.iloc[0]])
+        ),
+    num_bootstrap_resamples=10
+    )
 
 # COMMAND ----------
 
@@ -234,11 +272,8 @@ bar_plot(median_attributions, confidence_intervals, 'Anomaly attribution score')
 
 # COMMAND ----------
 
-data_first_quarter_2021 = data_2021[data_2021.index <= '2021-03-31']
-data_first_quarter_2022 = spark.read.table(f"{catalog}.{db}.data_first_quarter_2022")
-data_first_quarter_2022 = data_first_quarter_2022.toPandas().set_index("Date")
-
-(1 - data_first_quarter_2022['Profit'].mean() / data_first_quarter_2021['Profit'].mean()) * 100
+test = generate_data(catalog, db, 100, p_worker=0.25, train=False)
+display(test)
 
 # COMMAND ----------
 
@@ -249,16 +284,16 @@ data_first_quarter_2022 = data_first_quarter_2022.toPandas().set_index("Date")
 
 median_attributions, confidence_intervals = gcm.confidence_intervals(
     lambda: gcm.distribution_change(loaded_scm,
-                                    data_first_quarter_2021,
-                                    data_first_quarter_2022,
-                                    target_node='Profit',
+                                    train,
+                                    test,
+                                    target_node='quality',
                                     # Here, we are intersted in explaining the differences in the mean.
                                     difference_estimation_func=lambda x, y: np.mean(y) - np.mean(x)) 
 )
 
 # COMMAND ----------
 
-bar_plot(median_attributions, confidence_intervals, 'Profit change attribution in $')
+bar_plot(median_attributions, confidence_intervals, 'Quality change attribution in defect rate')
 
 # COMMAND ----------
 
@@ -267,7 +302,7 @@ bar_plot(median_attributions, confidence_intervals, 'Profit change attribution i
 
 # COMMAND ----------
 
-(1 - data_first_quarter_2022['Page_Views'].mean() / data_first_quarter_2021['Page_Views'].mean()) * 100
+(1 - train['worker'].mean() / test['worker'].mean()) * 100
 
 # COMMAND ----------
 
@@ -277,12 +312,15 @@ bar_plot(median_attributions, confidence_intervals, 'Profit change attribution i
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC © 2024 Databricks, Inc. All rights reserved. The source in this notebook is provided subject to the Databricks License. All included or referenced third party libraries are subject to the licenses set forth below.
+# MAGIC © 2025 Databricks, Inc. All rights reserved. The source in this notebook is provided subject to the Databricks License. All included or referenced third party libraries are subject to the licenses set forth below.
 # MAGIC
 # MAGIC | library                                | description             | license    | source                                              |
 # MAGIC |----------------------------------------|-------------------------|------------|-----------------------------------------------------|
+# MAGIC | Graphviz | An open source graph visualization software | Common Public License Version 1.0 | https://graphviz.org/download/
+# MAGIC | pygraphviz | A Python interface to the Graphviz graph layout and visualization package | BSD | https://pypi.org/project/pygraphviz/
+# MAGIC | networkx | A Python package for the creation, manipulation, and study of the structure, dynamics, and functions of complex networks. | BSD | https://pypi.org/project/networkx/
 # MAGIC | dowhy | A Python library for causal inference that supports explicit modeling and testing of causal assumptions | MIT | https://pypi.org/project/dowhy/
-# MAGIC | networkx | A Python package for the creation, manipulation, and study of the structure, dynamics, and functions of complex networks. | BSD License | https://pypi.org/project/networkx/
+# MAGIC | causal-learn | A python package for causal discovery that implements both classical and state-of-the-art causal discovery algorithms, which is a Python translation and extension of Tetrad. | MIT | https://pypi.org/project/causal-learn/
 
 # COMMAND ----------
 

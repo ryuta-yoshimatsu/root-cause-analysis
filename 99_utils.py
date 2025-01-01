@@ -1,46 +1,97 @@
 # Databricks notebook source
-import numpy as np
 import pandas as pd
+import numpy as np
+from scipy.stats import bernoulli, norm, halfnorm, poisson, uniform
 
-def clean_df(df):
-  
-  # Create Spark DataFrame
-  df = spark.createDataFrame(df)
+def generate_data(catalog, db, n, p_worker=0.75, train=True):
 
-  # Rename the column to remove invalid characters
-  df = df.withColumnRenamed("Shopping Event?", "Shopping_Event")
+    np.random.seed(1)
 
-  # Rename columns to replace spaces with underscores
-  for col in df.columns:
-    new_col = col.replace(" ", "_")
-    df = df.withColumnRenamed(col, new_col)
+    raw_material = np.random.choice([0, 1], size=n, p=[0.75, 0.25])       # Raw material
+    material = np.random.choice([0, 1], size=n, p=[0.75, 0.25])           # Additional material
+    worker = np.random.choice([0, 1], size=n, p=[p_worker, 1 - p_worker]) # Manual worker
+    machine = np.random.choice([0, 1], size=n, p=[0.75, 0.25])            # Machine setting
 
-  return df
+    chamber_temperature = np.random.normal(loc=20, scale=5, size=n)       # Celsius (°C)
+    chamber_humidity = np.random.normal(loc=0.5, scale=0.1, size=n)       # Humidity
+    chamber_pressure = np.random.normal(loc=1013.25, scale=15, size=n)    # Atmospheric pressure (hPa)
 
+    X = pd.DataFrame(
+        {
+            'id': [i + 1 for i in range(n)],
+            'raw_material': raw_material,
+            'worker': worker,
+            'machine': machine,
+            'material': material,
+            'chamber_temperature': chamber_temperature,
+            'chamber_humidity': chamber_humidity,
+            'chamber_pressure': chamber_pressure,
+        }
+    )
 
-def prepare_data(catalog, db):
-  
-  # Read into Pandas Dataframe
-  data_2021 = pd.read_csv('../data/2021 Data.csv')
-  data_first_day_2022 = pd.read_csv('../data/2022 First Day.csv')
-  data_first_quarter_2022 = pd.read_csv('../data/2022 First Quarter.csv')
+    # Measurement of the alignment of the materials and the machine relative to the standard, expressed in millimeters (mm)
+    #   worker 1 is less precise than worker 0
+    #   machine 1 is less precise than machine 0
+    X['position_alignment'] = (
+        0.1 + norm.rvs(loc=0, scale=0.01, size=n)  # const + noise
+        + halfnorm.rvs(loc=0.1, scale=0.01, size=n) * X['worker']
+        + halfnorm.rvs(loc=0.1, scale=0.01, size=n) * X['machine']
+    )
 
-  # Create Spark DataFrame
-  data_2021 = clean_df(data_2021)
-  data_first_day_2022 = clean_df(data_first_day_2022)
-  data_first_quarter_2022 = clean_df(data_first_quarter_2022)
+    # Measurement of the forces the machine exerts on the materials, expressed in newtons (N)
+    #   raw_material 1 is harder than raw_material 0
+    #   material 1 is harder than material 0
+    #   machine 1 applies stronger forces than machine 0
+    X['force_torque'] = (
+        500 + norm.rvs(loc=0, scale=25, size=n)    # const + noise
+        + halfnorm.rvs(loc=50, scale=5, size=n) * X['raw_material']
+        + halfnorm.rvs(loc=50, scale=5, size=n) * X['material']
+        + halfnorm.rvs(loc=50, scale=5, size=n) * X['machine']
+    )
 
-  # Write to Delta
-  data_2021.write.format("delta").mode("overwrite").saveAsTable(f"{catalog}.{db}.data_2021")
-  data_first_day_2022.write.format("delta").mode("overwrite").saveAsTable(f"{catalog}.{db}.data_first_day_2022")
-  data_first_quarter_2022.write.format("delta").mode("overwrite").saveAsTable(f"{catalog}.{db}.data_first_quarter_2022")
-  
+    # Measurement of the temperature of the materials or the machine, expressed in celsius (°C)
+    #   Higher chamber_temperature leads to higher welding temperature
+    #   Higher chamber_humidity or chamber_pressure leads to lower welding temperature
+    X['temperature'] = (
+        1250 + norm.rvs(loc=0, scale=20, size=n)  # const + noise
+        + halfnorm.rvs(loc=415, scale=41.5, size=n) * ((X['chamber_temperature'] - 20) / 20)
+        - halfnorm.rvs(loc=415, scale=41.5, size=n) * ((X['chamber_humidity'] - 0.5) / 0.5)
+        - halfnorm.rvs(loc=415, scale=41.5, size=n) * ((X['chamber_pressure'] - 1013.25) / 1013.25)
+    )
 
-# COMMAND ----------
+    # Dimensional check performed on the processed material, indicated as 0 (pass) or 1 (fail)
+    #   Larger position_alignment leads to higher chances of not passing the dimensions check
+    #   Lower force_torque leads to larger dimensions
+    #   The cutoff is arbitrary
+    X['dimensions'] = (X['position_alignment'] - 0.1) / 0.1 - (X['force_torque'] - 500) / 500
+    X['dimensions'] = X['dimensions'].apply(lambda x: np.random.choice([0, 1], p=[0.05, 0.95]) if x > 2.0 else 0)
 
-#from dowhy.datasets import sales_dataset
-#data_2021 = sales_dataset(start_date="2021-01-01", end_date="2021-12-31")
-#data_2022 = sales_dataset(start_date="2022-01-01", end_date="2022-12-31", change_of_price=0.9)
+    # Torque-resistance check performed on the processed material, indicated as 0 (pass) or 1 (fail)
+    #   Stronger force_torque leads to lower chances of not passing torque_checks
+    #   Higher temperature leads to lower chances of not passing torque_checks
+    #   The cutoff is arbitrary
+    X['torque_checks'] = (X['force_torque'] - 500) / 500 + (X['temperature'] - 1250) / 1250
+    X['torque_checks'] = X['torque_checks'].apply(lambda x: np.random.choice([0, 1], p=[0.05, 0.95]) if x < -0.175 else 0)
+
+    # Visual inspection check performed on the processed material, indicated as 0 (pass) or 1 (fail)
+    #   Higher welding temperature leads to higher chances of failing the check due to welding spatters
+    #   The cutoff is arbitrary
+    X['visual_inspection'] = X['temperature'].apply(lambda x: np.random.choice([0, 1], p=[0.05, 0.95]) if x > 1500 else 0)
+
+    # If any of dimensions, torque_checks or visual_inspection fails then the quality_check is negative
+    X['quality'] = X.apply(lambda x: 1 if x['dimensions'] + x['torque_checks'] + x['visual_inspection'] > 0 else 0, axis=1)
+
+    if train:
+        (
+            spark.createDataFrame(X)
+            .write
+            .format("delta")
+            .mode("overwrite")
+            .option("overwriteSchema", "true")
+            .saveAsTable(f"{catalog}.{db}.data_manufacturing")
+        )
+      
+    return X
 
 # COMMAND ----------
 
