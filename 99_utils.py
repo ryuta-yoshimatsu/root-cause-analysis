@@ -4,7 +4,26 @@ import numpy as np
 from scipy.stats import norm, halfnorm
 
 def generate_data(catalog, schema, n, p_worker=0.75, train=True):
+    """
+    Generate synthetic manufacturing data and optionally write it to a Delta table.
 
+    This function simulates various features (e.g., raw material, worker skill, 
+    machine settings, chamber conditions) and derives multiple quality checks 
+    (dimensions, torque checks, visual inspection) to form an overall quality metric. 
+    By default, it seeds the random number generator (np.random.seed(1)) for reproducibility.
+
+    Parameters:
+        catalog (str): The catalog name where the table will be stored.
+        schema (str): The schema name where the data table will be stored.
+        n (int): The number of data records to generate.
+        p_worker (float, optional): Probability for choosing worker=0 vs. worker=1. Defaults to 0.75.
+        train (bool, optional): Whether to write the generated DataFrame to a Delta table. Defaults to True.
+
+    Returns:
+        pd.DataFrame: A pandas DataFrame containing the simulated manufacturing data, 
+        including features, intermediate metrics, and a final quality indicator.
+    """
+    
     np.random.seed(1)
 
     raw_material = np.random.choice([0, 1], size=n, p=[0.75, 0.25])       # Raw material
@@ -81,6 +100,7 @@ def generate_data(catalog, schema, n, p_worker=0.75, train=True):
     # If any of dimensions, torque_checks or visual_inspection fails then the quality_check is negative
     X['quality'] = X.apply(lambda x: 1 if x['dimensions'] + x['torque_checks'] + x['visual_inspection'] > 0 else 0, axis=1)
 
+    # Write the dataframe to a delta table 
     if train:
         (
             spark.createDataFrame(X)

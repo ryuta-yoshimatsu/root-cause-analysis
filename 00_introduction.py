@@ -7,7 +7,7 @@
 # MAGIC %md
 # MAGIC <img src='https://github.com/databricks-industry-solutions/.github/raw/main/profile/solacc_logo_wide.png' width="1000" ></img>
 # MAGIC
-# MAGIC # Manufacturing Root Cause Analysis Solution Accelerator
+# MAGIC # Manufacturing Root Cause Analysis
 # MAGIC
 # MAGIC Causal Attributions and Root-Cause Analysis in Manufacturing Production Lines
 

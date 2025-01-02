@@ -6,6 +6,8 @@
 
 # MAGIC %md
 # MAGIC # Define Causal Relationships
+# MAGIC
+# MAGIC In this first notebook, we will explore the example use case, generate a synthetic dataset, create a causal graph, and log that graph to MLflow.
 
 # COMMAND ----------
 
@@ -86,9 +88,9 @@ mlflow.set_experiment(experiment_name)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Case
+# MAGIC ## Case Study
 # MAGIC
-# MAGIC In this example case, we examine a manufacturing company's production line to see how various factors affect the quality of processed products. In particular, we focus on products flagged as defective by the quality control system and aim to uncover the potential root cause. To do this, we use Graphical Causal Models (GCM).
+# MAGIC In this example, we examine a manufacturing company's production line to see how various factors affect the quality of processed products. In particular, we focus on products flagged as defective by the quality control system and aim to uncover the potential root cause. To do this, we use Graphical Causal Models (GCM).
 # MAGIC
 # MAGIC Suppose we are responsible for operating a production line in an assembly. The overall quality of the product depends on several checks, such as dimensional verification, torque checks, and visual inspection. For instance, the product’s dimensions rely on the positional and alignment precision of the mechanical process, as well as the forces and torques exerted by machines. These factors, in turn, may be influenced by environmental conditions like humidity or a manual operator. Now imagine that product quality remains steady for a long period, but suddenly there is a significant drop. Why?
 # MAGIC
@@ -99,25 +101,18 @@ mlflow.set_experiment(experiment_name)
 # MAGIC - **Worker**: A binary variable indicating which manual operator was in charge of the process.
 # MAGIC - **Machine**: A binary variable indicating the setting of the machine used in the process.
 # MAGIC - **Environment**: Three nodes with continuous variables that describe the conditions in the process chamber (temperature, humidity, and pressure).
-# MAGIC - **Position & Alignment**: A continuous variable indicating how much the materials and machine deviate from the standard in terms of positioning and alignment.
+# MAGIC - **Position & Alignment**: A continuous variable indicating the extent to which the materials and machine deviate from the standard in terms of positioning and alignment.
 # MAGIC - **Force & Torque**: A continuous variable indicating the forces and torques exerted by the machine on the materials.
 # MAGIC - **Temperature**: A continuous variable indicating the temperature of either the materials at the interface with the machine.
 # MAGIC - **Dimensions**: A binary variable indicating the result of the dimensional verification check on the processed material (0: pass, 1: fail).
 # MAGIC - **Torque Checks**: A binary variable indicating the result of the torque-resistance check on the processed material (0: pass, 1: fail).
 # MAGIC - **Visual Inspection**: A binary variable indicating the result of the visual inspection on the processed material (0: pass, 1: fail).
 # MAGIC - **Quality**: A binary variable reflecting the overall check result. If any prior check fails, this fails as well.
-# MAGIC
-# MAGIC Looking at these attributes, we can use our domain knowledge to describe the cause-effect relationships in the form of a directed acyclic graph, which represents our causal graph in the following. The graph is shown here:
-
-# COMMAND ----------
-
-from IPython.display import Image, display
-display(Image('./images/manufacturing-process-A-simplified.png', width=1000))
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC After discussing with the domain experts, we find the following:
+# MAGIC After discussing with the domain experts, we find the following cause-effect relationships between the variables:
 # MAGIC
 # MAGIC **Raw Material** impacts:  
 # MAGIC → Forces & Torque: Raw materials from different suppliers have slightly different material properties, requiring different forces and torques to process.
@@ -154,11 +149,20 @@ display(Image('./images/manufacturing-process-A-simplified.png', width=1000))
 # MAGIC
 # MAGIC **Visual Inspection** impacts:  
 # MAGIC → Quality: If a product fails the visual insprection checks, it fails the quality check.  
+# MAGIC
+# MAGIC The attributes and the cause-effect relationships between them can be described in the form of a directed acyclic graph, which represents our causal graph in the following.
+
+# COMMAND ----------
+
+from IPython.display import Image, display
+display(Image('./images/manufacturing-process-A-simplified.png', width=1000))
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ## Generate data
+# MAGIC
+# MAGIC Because this is a fictitious use case, we generate a synthetic dataset that aligns with our causal graph. Performing causal analysis on a synthetic dataset allows us to validate the approach and better understand the technique. After generating the dataset, we store it in a Delta table for later use. For more details, refer to the `generate_data` function in the `99_utils` notebook.
 
 # COMMAND ----------
 
@@ -170,6 +174,8 @@ display(X)
 
 # MAGIC %md
 # MAGIC ## Generate a causal graph
+# MAGIC
+# MAGIC From these relationships, we will construct our causal graph using the `DiGraph` class from the `networkx` package. Here the package `graphviz` and `pygraphviz` give us a nicely formatted DAG show below. 
 
 # COMMAND ----------
 
@@ -196,6 +202,8 @@ dowhy.gcm.util.plot(true_graph, figure_size=(20, 20))
 
 # MAGIC %md
 # MAGIC ## Log the causal graph to MLflow
+# MAGIC
+# MAGIC Because this graph will be used in subsequent notebooks, we will log it as an artifact using `MLflow`.
 
 # COMMAND ----------
 
@@ -206,6 +214,13 @@ with mlflow.start_run(run_name="causal_graph") as run:
 
     # log the pickle file to mlflow
     mlflow.log_artifact("/databricks/driver/causal_graph.pickle", artifact_path="graph")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Wrap up
+# MAGIC
+# MAGIC In this notebook, we explored the example use case of manufacturing production line, generated a synthetic dataset, created a causal graph, and logged that graph to MLflow.
 
 # COMMAND ----------
 
