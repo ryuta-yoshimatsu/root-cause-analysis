@@ -1,8 +1,22 @@
 # Databricks notebook source
 # MAGIC %md
+# MAGIC This solution accelerator notebook is available at [Databricks Industry Solutions](https://github.com/databricks-industry-solutions/).
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC
 # MAGIC #Create a model serving endpoint with Python
 # MAGIC Now we have a fine-tuned model registered in Unity Catalog, our final step is to deploy this model behind a Model Serving endpoint. This notebook covers wrapping the REST API queries for model serving endpoint creation, updating endpoint configuration based on model version, and endpoint deletion with Python for your Python model serving workflows.
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Cluster configuration
+# MAGIC We recommend using a cluster with the following or similar specifications to run this solution accelerator:
+# MAGIC - Unity Catalog enabled cluster
+# MAGIC - Databricks Runtime 15.4 LTS ML or above
+# MAGIC - Single-node cluster: e.g. `m5d.2xlarge` on AWS or `Standard_D8ds_v5` on Azure Databricks
 
 # COMMAND ----------
 
@@ -17,10 +31,10 @@ client = mlflow.tracking.MlflowClient()
 # COMMAND ----------
 
 catalog = "causal_solacc"
-db = "rca"
+schema = "rca"
 model = "scm_manufacturing"
 log_schema = "log" # A schema within the catalog where the inferece log is going to be stored 
-model_name = f"{catalog}.{db}.{model}"  # An existing model in model registry, may have multiple versions
+model_name = f"{catalog}.{schema}.{model}"  # An existing model in model registry, may have multiple versions
 model_serving_endpoint_name = f"root-cause-analysis-{model}"
 
 # COMMAND ----------
@@ -260,7 +274,7 @@ def generate_attribution(dataset, url=endpoint_url, databricks_token=token):
 
 # COMMAND ----------
 
-anomaly = spark.read.table(f"{catalog}.{db}.data_first_day_2022").toPandas().set_index("Date")
+anomaly = spark.read.table(f"{catalog}.{schema}.data_first_day_2022").toPandas().set_index("Date")
 result = generate_attribution(anomaly)
 print(result["predictions"][0])
 
@@ -285,7 +299,3 @@ print(result["predictions"][0])
 # MAGIC | networkx | A Python package for the creation, manipulation, and study of the structure, dynamics, and functions of complex networks. | BSD | https://pypi.org/project/networkx/
 # MAGIC | dowhy | A Python library for causal inference that supports explicit modeling and testing of causal assumptions | MIT | https://pypi.org/project/dowhy/
 # MAGIC | causal-learn | A python package for causal discovery that implements both classical and state-of-the-art causal discovery algorithms, which is a Python translation and extension of Tetrad. | MIT | https://pypi.org/project/causal-learn/
-
-# COMMAND ----------
-
-

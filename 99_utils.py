@@ -1,9 +1,9 @@
 # Databricks notebook source
 import pandas as pd
 import numpy as np
-from scipy.stats import bernoulli, norm, halfnorm, poisson, uniform
+from scipy.stats import norm, halfnorm
 
-def generate_data(catalog, db, n, p_worker=0.75, train=True):
+def generate_data(catalog, schema, n, p_worker=0.75, train=True):
 
     np.random.seed(1)
 
@@ -51,7 +51,7 @@ def generate_data(catalog, db, n, p_worker=0.75, train=True):
 
     # Measurement of the temperature of the materials or the machine, expressed in celsius (°C)
     #   Higher chamber_temperature leads to higher welding temperature
-    #   Higher chamber_humidity or chamber_pressure leads to lower welding temperature
+    #   Higher chamber_humidity and chamber_pressure leads to lower welding temperature
     X['temperature'] = (
         1250 + norm.rvs(loc=0, scale=20, size=n)  # const + noise
         + halfnorm.rvs(loc=415, scale=41.5, size=n) * ((X['chamber_temperature'] - 20) / 20)
@@ -88,7 +88,7 @@ def generate_data(catalog, db, n, p_worker=0.75, train=True):
             .format("delta")
             .mode("overwrite")
             .option("overwriteSchema", "true")
-            .saveAsTable(f"{catalog}.{db}.data_manufacturing")
+            .saveAsTable(f"{catalog}.{schema}.data_manufacturing")
         )
       
     return X

@@ -1,28 +1,54 @@
 # Databricks notebook source
+# MAGIC %md
+# MAGIC This solution accelerator notebook is available at [Databricks Industry Solutions](https://github.com/databricks-industry-solutions/).
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Answer causal questions
+# MAGIC Perform causal attributions and root cause analysis offline
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Cluster configuration
+# MAGIC We recommend using a cluster with the following or similar specifications to run this solution accelerator:
+# MAGIC - Unity Catalog enabled cluster
+# MAGIC - Databricks Runtime 15.4 LTS ML or above
+# MAGIC - Single-node cluster: e.g. `m5d.2xlarge` on AWS or `Standard_D8ds_v5` on Azure Databricks
+
+# COMMAND ----------
+
+# DBTITLE 1,Install graphviz from nicer visualization
 # MAGIC %sh 
 # MAGIC sudo apt-get -qq update
 # MAGIC sudo apt-get -y -qq install graphviz libgraphviz-dev
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC We install the required packages from the `requirements.txt`.
+
+# COMMAND ----------
+
+# DBTITLE 1,Install requirements
 # MAGIC %pip install -r ./requirements.txt --quiet
 # MAGIC dbutils.library.restartPython()
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC In the next cell, we run the `99_utils` notebook, which defines a few utility functions that we will use along the way.
+
+# COMMAND ----------
+
+# DBTITLE 1,Run utils notebook
 # MAGIC %run ./99_utils
 
 # COMMAND ----------
 
-catalog = "causal_solacc"
-db = "rca"
-model = "scm_manufacturing"
-
-# COMMAND ----------
-
 # MAGIC %md
-# MAGIC ## Step 3: Answer causal questions
-# MAGIC ### Load the model
+# MAGIC ## Define variables and set MLflow experiment
 
 # COMMAND ----------
 
@@ -30,11 +56,33 @@ import mlflow
 from mlflow import MlflowClient
 import pandas as pd
 import numpy as np
+from dowhy import gcm
+
+# COMMAND ----------
+
+catalog = 'causal_solacc'     # Change this to your catalog name
+schema = 'rca'                # Change this to your schema name
+model = "scm_manufacturing"   # Change this to your model name
+
+# Check if the catalog exists
+catalog_exists = spark.sql(f"SHOW CATALOGS LIKE '{catalog}'").count() > 0
+assert catalog_exists, f"Catalog {catalog} does not exist. Run the previous notebook: 01_causal_graph."
+
+# Check if the schema exists
+schema_exists = spark.sql(f"SHOW SCHEMAS IN {catalog} LIKE '{schema}'").count() > 0
+assert schema_exists, f"Schema {schema} does not exist in catalog {catalog}. Run the previous notebook: 01_causal_graph."
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Load the causal model
+
+# COMMAND ----------
 
 mlflow.set_registry_uri("databricks-uc")
 mlflow_client = MlflowClient()
 
-registered_model_name = f"{catalog}.{db}.{model}"
+registered_model_name = f"{catalog}.{schema}.{model}"
 model = f"models:/{registered_model_name}@Champion"
 
 # Load model as a PyFuncModel
@@ -45,33 +93,18 @@ loaded_causal_graph = loaded_model.unwrap_python_model().load_causal_graph()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### Generate new samples
+# MAGIC ## Perfrom root cause analysis
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### What are the key factors influencing the variance in quality?
 # MAGIC
-# MAGIC Since we learned about the data generation process, we can also generate new samples:
-
-# COMMAND ----------
-
-from dowhy import gcm
-gcm.draw_samples(loaded_scm, num_samples=10)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC We have drawn 10 samples from the joint distribution following the learned causal relationships.
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ### What are the key factors influencing the variance in profit?
-
-# COMMAND ----------
-
-# MAGIC %md
 # MAGIC At this point, we want to understand which factors drive changes in the Profit. Let us first have a closer look at the Profit over time. For this, we plot the Profit over time for 2021, where the produced plot shows the Profit in dollars on the Y-axis and the time on the X-axis.
 
 # COMMAND ----------
 
-train = spark.read.table(f"{catalog}.{db}.data_manufacturing")
+train = spark.read.table(f"{catalog}.{schema}.data_manufacturing")
 train = train.toPandas()
 train.head()
 
@@ -150,16 +183,17 @@ bar_plot(convert_to_percentage(iccs), ylabel='Variance attribution in %')
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### What are the key factors explaining the Profit drop on a particular day?
+# MAGIC ### What are the key factors explaining the quality drop on a particular ID?
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC After a successful year in terms of profit, newer technologies come to the market and, thus, we want to keep the profit up and get rid of excess inventory by selling more devices. In order to increase the demand, we therefore lower the retail price by 10% at the beginning of 2022. Based on a prior analysis, we know that a decrease of 10% in the price would roughly increase the demand by 13.75%, a slight surplus. Following the price elasticity of demand model, we expect an increase of around 37.5% in number of Sold Units. Let us take a look if this is true by loading the data for the first day in 2022 and taking the fraction between the numbers of Sold Units from both years for that day:
+# MAGIC After a successful year in terms of profit, newer technologies come to the market and, thus, we want to keep the profit up and get rid of excess inventory by selling more devices. In order to increase the demand, we therefore lower the retail price by 10% at the beginning of 2022. Based on a prior analysis, we know that a decrease of 10% in the price would roughly increase the demand by 13.75%, a slight surplus. Following the price elasticity of demand model, we expect an increase of around 37.5% in number of Sold Units. Let us take a look if this is true by loading the data for the first day in 2022 and taking the fraction between the numbers of Sold Units from both years for that day.
+# MAGIC
+# MAGIC Since we learned about the data generation process, we can also generate new samples:
 
 # COMMAND ----------
 
-from dowhy import gcm
 np.random.seed(1)
 
 new_batch = gcm.draw_samples(loaded_scm, num_samples=100)
@@ -263,7 +297,7 @@ bar_plot(median_attributions, confidence_intervals, 'Anomaly attribution score')
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### What caused the profit drop in Q1 2022?
+# MAGIC ### What caused the quality drop in the new batch of processed products?
 
 # COMMAND ----------
 
@@ -272,7 +306,7 @@ bar_plot(median_attributions, confidence_intervals, 'Anomaly attribution score')
 
 # COMMAND ----------
 
-test = generate_data(catalog, db, 100, p_worker=0.25, train=False)
+test = generate_data(catalog, schema, 100, p_worker=0.25, train=False)
 display(test)
 
 # COMMAND ----------
@@ -321,7 +355,3 @@ bar_plot(median_attributions, confidence_intervals, 'Quality change attribution 
 # MAGIC | networkx | A Python package for the creation, manipulation, and study of the structure, dynamics, and functions of complex networks. | BSD | https://pypi.org/project/networkx/
 # MAGIC | dowhy | A Python library for causal inference that supports explicit modeling and testing of causal assumptions | MIT | https://pypi.org/project/dowhy/
 # MAGIC | causal-learn | A python package for causal discovery that implements both classical and state-of-the-art causal discovery algorithms, which is a Python translation and extension of Tetrad. | MIT | https://pypi.org/project/causal-learn/
-
-# COMMAND ----------
-
-

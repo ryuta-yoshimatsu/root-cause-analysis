@@ -1,38 +1,78 @@
 # Databricks notebook source
+# MAGIC %md
+# MAGIC This solution accelerator notebook is available at [Databricks Industry Solutions](https://github.com/databricks-industry-solutions/).
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Fit Causal Models to Data
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Cluster configuration
+# MAGIC We recommend using a cluster with the following or similar specifications to run this solution accelerator:
+# MAGIC - Unity Catalog enabled cluster
+# MAGIC - Databricks Runtime 15.4 LTS ML or above
+# MAGIC - Single-node cluster: e.g. `m5d.2xlarge` on AWS or `Standard_D8ds_v5` on Azure Databricks
+
+# COMMAND ----------
+
+# DBTITLE 1,Install graphviz from nicer visualization
 # MAGIC %sh 
 # MAGIC sudo apt-get -qq update
 # MAGIC sudo apt-get -y -qq install graphviz libgraphviz-dev
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC We install the required packages from the `requirements.txt`.
+
+# COMMAND ----------
+
+# DBTITLE 1,Install requirements
 # MAGIC %pip install -r ./requirements.txt --quiet
 # MAGIC dbutils.library.restartPython()
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC In the next cell, we run the `99_utils` notebook, which defines a few utility functions that we will use along the way.
+
+# COMMAND ----------
+
+# DBTITLE 1,Run utils notebook
 # MAGIC %run ./99_utils
 
 # COMMAND ----------
 
-catalog = "causal_solacc"
-db = "rca"
-model = "scm_manufacturing"
-
-# Make sure that the catalog exists
-_ = spark.sql(f"CREATE CATALOG IF NOT EXISTS {catalog}")
-
-# Make sure that the schema exists
-_ = spark.sql(f"CREATE SCHEMA IF NOT EXISTS {catalog}.{db}")
+# MAGIC %md
+# MAGIC ## Define variables and set MLflow experiment
 
 # COMMAND ----------
 
 import mlflow
 import pickle
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
 import dowhy
 import networkx as nx
+
+# COMMAND ----------
+
+catalog = 'causal_solacc'     # Change this to your catalog name
+schema = 'rca'                # Change this to your schema name
+model = "scm_manufacturing"   # Change this to your model name
+
+# Check if the catalog exists
+catalog_exists = spark.sql(f"SHOW CATALOGS LIKE '{catalog}'").count() > 0
+assert catalog_exists, f"Catalog {catalog} does not exist. Run the previous notebook: 01_causal_graph."
+
+# Check if the schema exists
+schema_exists = spark.sql(f"SHOW SCHEMAS IN {catalog} LIKE '{schema}'").count() > 0
+assert schema_exists, f"Schema {schema} does not exist in catalog {catalog}. Run the previous notebook: 01_causal_graph."
+
+# COMMAND ----------
 
 # Get the current user name
 current_user_name = spark.sql("SELECT current_user()").collect()[0][0]
@@ -44,79 +84,7 @@ mlflow.set_experiment(experiment_name)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC # Causal Attributions and Root-Cause Analysis in a Manufacturing Assembly Line
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC This notebook is an extended and updated version of the corresponding blog post: [Root Cause Analysis with DoWhy, an Open Source Python Library for Causal Machine Learning](https://aws.amazon.com/blogs/opensource/root-cause-analysis-with-dowhy-an-open-source-python-library-for-causal-machine-learning/)
-# MAGIC
-# MAGIC In this example, we look at an online store and analyze how different factors influence our profit. In particular, we want to analyze an unexpected drop in profit and identify the potential root cause of it. For this, we can make use of Graphical Causal Models (GCM).
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## The scenario
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC Suppose we are selling a smartphone in an online shop with a retail price of $999. The overall profit from the product depends on several factors, such as the number of sold units, operational costs or ad spending. On the other hand, the number of sold units, for instance, depends on the number of visitors on the product page, the price itself and potential ongoing promotions. Suppose we observe a steady profit of our product over the year 2021, but suddenly, there is a significant drop in profit at the beginning of 2022. Why?
-# MAGIC
-# MAGIC In the following scenario, we will use DoWhy to get a better understanding of the causal impacts of factors influencing the profit and to identify the causes for the profit drop. To analyze our problem at hand, we first need to define our belief about the causal relationships. For this, we collect daily records of the different factors affecting profit. These factors are:
-# MAGIC
-# MAGIC - **Shopping Event?**: A binary value indicating whether a special shopping event took place, such as Black Friday or Cyber Monday sales.
-# MAGIC - **Ad Spend**: Spending on ad campaigns.
-# MAGIC - **Page Views**: Number of visits on the product detail page.
-# MAGIC - **Unit Price**: Price of the device, which could vary due to temporary discounts.
-# MAGIC - **Sold Units**: Number of sold phones.
-# MAGIC - **Revenue**: Daily revenue.
-# MAGIC - **Operational Cost**: Daily operational expenses which includes production costs, spending on ads, administrative expenses, etc.
-# MAGIC - **Profit**: Daily profit.
-# MAGIC
-# MAGIC Looking at these attributes, we can use our domain knowledge to describe the cause-effect relationships in the form of a directed acyclic graph, which represents our causal graph in the following. The graph is shown here:
-
-# COMMAND ----------
-
-from IPython.display import Image
-Image('./images/manufacturing-process-A-simplified.png')
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC In this scenario we know the following:
-# MAGIC
-# MAGIC **Shopping Event?** impacts:  
-# MAGIC → Ad Spend: To promote the product on special shopping events, we require additional ad spending.  
-# MAGIC → Page Views: Shopping events typically attract a large number of visitors to an online retailer due to discounts and various offers.  
-# MAGIC → Unit Price: Typically, retailers offer some discount on the usual retail price on days with a shopping event.  
-# MAGIC → Sold Units: Shopping events often take place during annual celebrations like Christmas, Father’s day, etc, when people often buy more than usual.  
-# MAGIC
-# MAGIC **Ad Spend** impacts:  
-# MAGIC → Page Views: The more we spend on ads, the more likely people will visit the product page.  
-# MAGIC → Operational Cost: Ad spending is part of the operational cost.  
-# MAGIC
-# MAGIC **Page Views** impacts:  
-# MAGIC → Sold Units: The more people visiting the product page, the more likely the product is bought. This is quite obvious seeing that if no one would visit the page, there wouldn’t be any sale.  
-# MAGIC
-# MAGIC **Unit Price** impacts:  
-# MAGIC → Sold Units: The higher/lower the price, the less/more units are sold.  
-# MAGIC → Revenue: The daily revenue typically consist of the product of the number of sold units and unit price.  
-# MAGIC
-# MAGIC **Sold Units** impacts:  
-# MAGIC → Sold Units: Same argument as before, the number of sold units heavily influences the revenue.  
-# MAGIC → Operational Cost: There is a manufacturing cost for each unit we produce and sell. The more units we well the higher the revenue, but also the higher the manufacturing costs.  
-# MAGIC
-# MAGIC **Operational Cost** impacts:  
-# MAGIC → Profit: The profit is based on the generated revenue minus the operational cost.  
-# MAGIC
-# MAGIC **Revenue** impacts:  
-# MAGIC → Profit: Same reason as for the operational cost.
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Step 1: Define causal model
+# MAGIC ## Load the causal graph
 
 # COMMAND ----------
 
@@ -138,7 +106,7 @@ discovery_runs = client.search_runs(
     )
 
 # Make sure there is at least one run available
-assert len(discovery_runs) == 1, "please run the previous notebook (01_causal_graph) from the beginning at least once"
+assert len(discovery_runs) == 1, "Run the previous notebook: 01_causal_graph"
 
 # The only result should be the latest based on our search_runs call
 latest_discovery_run = discovery_runs[0]
@@ -153,7 +121,7 @@ with open(local_path, "rb") as f:
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC To verify that we did not forget an edge, we can plot this graph:
+# MAGIC To verify, we can plot the loaded graph:
 
 # COMMAND ----------
 
@@ -162,16 +130,21 @@ dowhy.gcm.util.plot(causal_graph, figure_size=(20, 20))
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC Next, we look at the data from 2021:
+# MAGIC ## Load the dataset
 
 # COMMAND ----------
 
-table_name = f"{catalog}.{db}.data_manufacturing"
+table_name = f"{catalog}.{schema}.data_manufacturing"
 version_query = f"DESCRIBE HISTORY {table_name}"
 version = spark.sql(version_query).collect()[0][0]
 sdf = spark.read.format("delta").option("versionAsOf", version).table(table_name)
 pdf = sdf.toPandas()
 pdf.head()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Assign causal mechanisms
 
 # COMMAND ----------
 
@@ -215,7 +188,7 @@ print(auto_assignment_summary)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Step 2: Fit causal models to data
+# MAGIC ## Fit causal models to the data
 
 # COMMAND ----------
 
@@ -225,6 +198,11 @@ print(auto_assignment_summary)
 # COMMAND ----------
 
 gcm.fit(scm, pdf)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Evaluate the fitted causal models
 
 # COMMAND ----------
 
@@ -250,6 +228,11 @@ print(
 
 # MAGIC %md
 # MAGIC > The selection of baseline models or the p-value for graph falsification can be configured as well. For more details, take a look at the corresponding evaluate_causal_model documentation.
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Register the fitted causal models to Unity Catalog using MLflow
 
 # COMMAND ----------
 
@@ -288,7 +271,7 @@ signature = infer_signature(
     model_input=input_example, 
     model_output=pd.DataFrame(gcm.attribute_anomalies(scm, target_node="quality", anomaly_samples=input_example)),
     )
-registered_model_name = f"{catalog}.{db}.{model}"
+registered_model_name = f"{catalog}.{schema}.{model}"
 
 with mlflow.start_run(run_name="causal_model") as run:
     mlflow.pyfunc.log_model(
@@ -296,7 +279,7 @@ with mlflow.start_run(run_name="causal_model") as run:
         python_model=SCM(scm, causal_graph, "quality"),
         pip_requirements=[
             "dowhy==" + dowhy.__version__, 
-            "networkx==" + nx.__version__,
+            "pandas==" + pd.__version__,
             ],
         signature=signature,
         input_example=input_example,
@@ -341,7 +324,3 @@ mlflow_client.set_registered_model_alias(registered_model_name, "champion", mode
 # MAGIC | networkx | A Python package for the creation, manipulation, and study of the structure, dynamics, and functions of complex networks. | BSD | https://pypi.org/project/networkx/
 # MAGIC | dowhy | A Python library for causal inference that supports explicit modeling and testing of causal assumptions | MIT | https://pypi.org/project/dowhy/
 # MAGIC | causal-learn | A python package for causal discovery that implements both classical and state-of-the-art causal discovery algorithms, which is a Python translation and extension of Tetrad. | MIT | https://pypi.org/project/causal-learn/
-
-# COMMAND ----------
-
-
