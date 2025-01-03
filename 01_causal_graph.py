@@ -7,7 +7,7 @@
 # MAGIC %md
 # MAGIC # Define Causal Relationships
 # MAGIC
-# MAGIC In this first notebook, we will explore the example use case, generate a synthetic dataset, create a causal graph, and log that graph to MLflow.
+# MAGIC In this first notebook, we will describe the example use case, generate a synthetic dataset, create a causal graph, and log that graph to MLflow.
 
 # COMMAND ----------
 

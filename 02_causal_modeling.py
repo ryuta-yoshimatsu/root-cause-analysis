@@ -85,13 +85,10 @@ mlflow.set_experiment(experiment_name)
 
 # MAGIC %md
 # MAGIC ## Load the causal graph
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC Now, let us model these causal relationships. In the first step, we need to define a so-called structural causal model (SCM), which is a combination of the causal graph and the underlying generative models describing the data generation process.
 # MAGIC
-# MAGIC The causal graph can be defined via:
+# MAGIC Now, let's load the causal graph defined in the previous notebook. We will integrate this graph with generative models that describe the data generation process at each node to construct a structural causal model (SCM).
+# MAGIC
+# MAGIC The causal graph can be loaded using:
 
 # COMMAND ----------
 
@@ -121,7 +118,7 @@ with open(local_path, "rb") as f:
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC To verify, we can plot the loaded graph:
+# MAGIC To verify, let's plot the graph:
 
 # COMMAND ----------
 
@@ -131,27 +128,38 @@ dowhy.gcm.util.plot(causal_graph, figure_size=(20, 20))
 
 # MAGIC %md
 # MAGIC ## Load the dataset
+# MAGIC
+# MAGIC Next, we will load the synthetic dataset we generated in the previous notebook.
 
 # COMMAND ----------
 
+# Define the Delta table name
 table_name = f"{catalog}.{schema}.data_manufacturing"
+
+# Query to retrieve the version history of the Delta table
 version_query = f"DESCRIBE HISTORY {table_name}"
+
+# Get the latest version of the Delta table
 version = spark.sql(version_query).collect()[0][0]
+
+# Read the Delta table as of the latest version
 sdf = spark.read.format("delta").option("versionAsOf", version).table(table_name)
+
+# Convert the Spark DataFrame to a pandas DataFrame
 pdf = sdf.toPandas()
+
+# Display the first few rows of the pandas DataFrame
 pdf.head()
 
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Assign causal mechanisms
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC As we see, we have one sample for each day in 2021 with all the variables in the causal graph. Note that in the synthetic data we consider here, shopping events were also generated randomly.
+# MAGIC ## Assign causal mechanisms to the graph
 # MAGIC
-# MAGIC We defined the causal graph, but we still need to assign generative models to the nodes. We can either manually specify those models, and configure them if needed, or automatically infer “appropriate” models using heuristics from data. We will leverage the latter here:
+# MAGIC As we can see, we have one sample for each processed product, including all the variables in the causal graph.
+# MAGIC
+# MAGIC While we have defined the causal graph, we still need to assign generative models to its nodes. These models can either be manually specified and configured if necessary or automatically inferred from the data using heuristics. Here, we will use the latter approach:
 
 # COMMAND ----------
 
@@ -172,9 +180,9 @@ auto_assignment_summary = gcm.auto.assign_causal_mechanisms(
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC Whenever available, we recommend assigning models based on prior knowledge as then models would closely mimic the physics of the domain, and not rely on nuances of the data. However, here we asked DoWhy to do this for us instead.
+# MAGIC Whenever possible, it is best practice to assign models based on prior knowledge, as this ensures they closely reflect the underlying physics of the domain rather than relying on data-specific nuances. However, in this case, we have asked DoWhy to handle this task for us.
 # MAGIC
-# MAGIC After automatically assign the models, we can print a summary to obtain some insights into the selected models:
+# MAGIC Once the models are automatically assigned, we can print a summary to gain insights into the selected models:
 
 # COMMAND ----------
 
@@ -183,17 +191,14 @@ print(auto_assignment_summary)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC As we see, while the auto assignment also considered non-linear models, a linear model is sufficient for most relationships, except for Revenue, which is the product of Sold Units and Unit Price.
+# MAGIC We see that the auto assignment considered a linear model for non-root nodes with continuous data: e.g., `position_alignment`, whereas for non-root nodes with binary data, it considered a non-linear model: e.g., `dimensions`. 
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ## Fit causal models to the data
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC After assigning a model to each node, we need to learn the parameters of the model:
+# MAGIC
+# MAGIC After assigning a model to each node, we need to learn the parameters of the model. We fit the causal model to the dataset.
 
 # COMMAND ----------
 
@@ -203,11 +208,8 @@ gcm.fit(scm, pdf)
 
 # MAGIC %md
 # MAGIC ## Evaluate the fitted causal models
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC The fit method learns the parameters of the generative models in each node. Before we continue, let's have a quick look into the performance of the causal mechanisms and how well they capture the distribution:
+# MAGIC
+# MAGIC The fit method learns the parameters of the generative models in each node. Let's have a look into the performance of the causal mechanisms and how well they capture the distribution:
 
 # COMMAND ----------
 
@@ -311,6 +313,11 @@ def get_latest_model_version(mlflow_client, registered_name):
 
 model_version = get_latest_model_version(mlflow_client, registered_model_name)
 mlflow_client.set_registered_model_alias(registered_model_name, "champion", model_version)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Wrap up
 
 # COMMAND ----------
 

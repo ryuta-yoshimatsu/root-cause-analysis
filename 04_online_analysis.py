@@ -290,6 +290,11 @@ print(result["predictions"][0])
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ## Wrap up
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC © 2025 Databricks, Inc. All rights reserved. The source in this notebook is provided subject to the Databricks License. All included or referenced third party libraries are subject to the licenses set forth below.
 # MAGIC
 # MAGIC | library                                | description             | license    | source                                              |

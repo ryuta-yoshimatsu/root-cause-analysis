@@ -93,7 +93,7 @@ loaded_causal_graph = loaded_model.unwrap_python_model().load_causal_graph()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Perfrom root cause analysis
+# MAGIC ## Perform root cause analysis
 
 # COMMAND ----------
 
@@ -342,6 +342,11 @@ bar_plot(median_attributions, confidence_intervals, 'Quality change attribution 
 
 # MAGIC %md
 # MAGIC Indeed, the number of Page Views dropped by ~14%. Since we eliminated all other potential factors, we can now dive deeper into the Page Views and see what is going on there. This is a hypothetical scenario, but we could imagine it could be due to a change in the search algorithm which ranks this product lower in the results and therefore drives fewer customers to the product page. Knowing this, we could now start mitigating the issue.
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Wrap up
 
 # COMMAND ----------
 

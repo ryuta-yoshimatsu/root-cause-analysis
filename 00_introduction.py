@@ -14,19 +14,19 @@
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Challenges in Root Cause Analysis on Production Lines
+# MAGIC ## Challenges with traditional correlational machine learning approaches
 # MAGIC
 # MAGIC <img src="images/manufacturing-processes.png" alt="Simplified Flow Between Production Line Processes" width="750">
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Enhancing Root Cause Analysis through Causal Machine Learning
+# MAGIC ## Enhancing root cause analysis with causal machine learning
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Case Study
+# MAGIC ## Case study
 
 # COMMAND ----------
 
