@@ -95,7 +95,7 @@ def generate_data(catalog, schema, n, p_worker=0.75, train=True):
     # Visual inspection check performed on the processed material, indicated as 0 (pass) or 1 (fail)
     #   Higher welding temperature leads to higher chances of failing the check due to welding spatters
     #   The cutoff is arbitrary
-    X['visual_inspection'] = X['temperature'].apply(lambda x: np.random.choice([0, 1], p=[0.05, 0.95]) if x > 1500 else 0)
+    X['visual_inspection'] = X['temperature'].apply(lambda x: np.random.choice([0, 1], p=[0.05, 0.95]) if x > 1550 else 0)
 
     # If any of dimensions, torque_checks or visual_inspection fails then the quality_check is negative
     X['quality'] = X.apply(lambda x: 1 if x['dimensions'] + x['torque_checks'] + x['visual_inspection'] > 0 else 0, axis=1)

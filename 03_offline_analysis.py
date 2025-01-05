@@ -6,7 +6,7 @@
 
 # MAGIC %md
 # MAGIC # Answer causal questions
-# MAGIC Perform causal attributions and root cause analysis offline
+# MAGIC In this notebook, we will perform causal analysis such as causal attributions and root cause analysis using the fitted graph from the previous notebook.
 
 # COMMAND ----------
 
@@ -76,6 +76,8 @@ assert schema_exists, f"Schema {schema} does not exist in catalog {catalog}. Run
 
 # MAGIC %md
 # MAGIC ## Load the causal model
+# MAGIC
+# MAGIC Let's load the fitted causal model from the previous notebook. We will use the "champion" alias to ensure the correct version is loaded.
 
 # COMMAND ----------
 
@@ -83,7 +85,7 @@ mlflow.set_registry_uri("databricks-uc")
 mlflow_client = MlflowClient()
 
 registered_model_name = f"{catalog}.{schema}.{model}"
-model = f"models:/{registered_model_name}@Champion"
+model = f"models:/{registered_model_name}@champion"
 
 # Load model as a PyFuncModel
 loaded_model = mlflow.pyfunc.load_model(model)
@@ -93,14 +95,14 @@ loaded_causal_graph = loaded_model.unwrap_python_model().load_causal_graph()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Perform root cause analysis
+# MAGIC ## Conduct root cause analysis
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ### What are the key factors influencing the variance in quality?
 # MAGIC
-# MAGIC At this point, we want to understand which factors drive changes in the Profit. Let us first have a closer look at the Profit over time. For this, we plot the Profit over time for 2021, where the produced plot shows the Profit in dollars on the Y-axis and the time on the X-axis.
+# MAGIC Suppose we want to understand the factors driving changes in quality. To begin, let's perform a simple descriptive analysis of this target variable. We'll plot quality against product ID, with quality on the Y-axis and product ID on the X-axis. Before creating the plot, we need to load the data.
 
 # COMMAND ----------
 
@@ -115,16 +117,16 @@ train['quality'].plot(ylabel='quality', figsize=(15,5), rot=45)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC We see some significant spikes in the Profit across the year. We can further quantify this by looking at the standard deviation:
+# MAGIC It seems that defective products are evenly distributed across the IDs. Next, let's examine the rate of defective products:
 
 # COMMAND ----------
 
-train['quality'].std()
+train.describe()
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC The estimated standard deviation of ~259247 dollars is quite significant. Looking at the causal graph, we see that Revenue and Operational Cost have a direct impact on the Profit, but which of them contribute the most to the variance? To find this out, we can make use of the direct arrow strength algorithm that quantifies the causal influence of a specific arrow in the graph:
+# MAGIC The defect rate is 0.075. Examining the causal graph, we observe that dimensional verification, torque resistance checks, and visual inspection directly impact quality. But which of these factors contributes the most to the variance? To determine this, we use the [direct arrow strength algorithm](https://www.pywhy.org/dowhy/v0.9.1/user_guide/gcm_based_inference/answering_causal_questions/quantify_arrow_strength.html), which quantifies the causal influence of each specific arrow in the graph:
 
 # COMMAND ----------
 
@@ -146,13 +148,13 @@ plot(loaded_causal_graph,
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC In this causal graph, we see how much each node contributes to the variance in Profit. For simplicity, the contributions are converted to percentages. Since Profit itself is only the difference between Revenue and Operational Cost, we do not expect further factors influencing the variance. As we see, Revenue has more impact than Operational Cost. This makes sense seeing that Revenue typically varies more than Operational Cost due to the stronger dependency on the number of sold units. Note that the direct arrow strength method also supports the use of other kinds of measures, for instance, KL divergence. 
+# MAGIC In this causal graph, we observe how much each node contributes to the variance in quality, with contributions expressed as percentages. Since quality is defined as: `max(dimensions, torque_checks, visual_inspection)` (see the function `generate_data` in the notebook `99_utils` for more detail), there should be no additional factors influencing its variance. As shown, `torque_checks` has a greater impact than `dimensions` or `visual_inspection`.
 # MAGIC
-# MAGIC While the direct influences are helpful in understanding which direct parents influence the most on the variance in Profit, this mostly confirms our prior belief. The question of which factor is ultimately responsible for this high variance is, however, still unclear. For instance, Revenue itself is based on Sold Units and the Unit Price. Although we could recursively apply the direct arrow strength to all nodes, we would not get a correctly weighted insight into the influence of upstream nodes on the variance.
+# MAGIC While understanding the direct influences is important for identifying which immediate parents contribute most to the variance in quality, the deeper question remains: what ultimately drives `quality = 1`? For example, `torque_checks` depends on `force_torque` and `temperature`, which are themselves influenced by other upstream factors.
 # MAGIC
-# MAGIC What are the important causal factors contributing to the variance in Profit? To find this out, we can use the intrinsic causal contribution method that attributes the variance in Profit to the upstream nodes in the causal graph by only considering information that is newly added by a node and not just inherited from its parents. For instance, a node that is simply a rescaled version of its parent would not have any intrinsic contribution. See the corresponding [research paper](https://arxiv.org/abs/2007.00714) for more details.
+# MAGIC To identify the key causal factors driving the variance in quality, we can use the [intrinsic causal contribution method](https://www.pywhy.org/dowhy/v0.11/user_guide/causal_tasks/quantify_causal_influence/icc.html). This approach attributes variance in quality to upstream nodes in the causal graph, accounting only for the unique contribution by each node, excluding contributions inherited from its parents. For more details, refer to the [research paper](https://arxiv.org/abs/2007.00714).
 # MAGIC
-# MAGIC Let's apply the method to the data:
+# MAGIC Now, let's apply this method to the data:
 
 # COMMAND ----------
 
@@ -166,31 +168,14 @@ bar_plot(convert_to_percentage(iccs), ylabel='Variance attribution in %')
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC The scores shown in this bar chart are percentages indicating how much variance each node is contributing to Profit — without inheriting the variance from its parents in the causal graph. As we see quite clearly, the Shopping Event has by far the biggest influence on the variance in our Profit. This makes sense, seeing that the sales are heavily impacted during promotion periods like Black Friday or Prime Day and, thus, impact the overall profit. Surprisingly, we also see that factors such as the number of sold units or number of page views have a rather small influence, i.e., the large variance in profit can be almost completely explained by the shopping events. Let’s check this visually by marking the days where we had a shopping event. To do so, we use the pandas plot function again, but additionally mark all points in the plot with a vertical red bar where a shopping event occured:
-
-# COMMAND ----------
-
-#import matplotlib.pyplot as plt
-#
-#data['quality'].plot(ylabel='Quality', figsize=(15,5), rot=45)
-#plt.vlines(np.arange(0, data.shape[0])[data['Shopping_Event']], data['quality'].min(), data['quality'].max(), linewidth=10, alpha=0.3, color='r')
+# MAGIC The scores shown in this bar chart represent percentages that quantify how much variance each node contributes to quality—excluding any variance inherited from its parent nodes in the causal graph. As shown clearly, `chamber_temperature` and `chamber_humidity` have the most significant influence on quality variance. This highlights the process's sensitivity to some environmental conditions, which may have been previously overlooked. Additionally, factors such as `worker` and `machine` also exhibit a non-negligible influence.
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC We clearly see that the shopping events coincide with the high peaks in profit. While we could have investigated this manually by looking at all kinds of different relationships or using domain knowledge, the tasks gets much more difficult as the complexity of the system increases. With a few lines of code, we obtained these insights from DoWhy.
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ### What are the key factors explaining the quality drop on a particular ID?
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC After a successful year in terms of profit, newer technologies come to the market and, thus, we want to keep the profit up and get rid of excess inventory by selling more devices. In order to increase the demand, we therefore lower the retail price by 10% at the beginning of 2022. Based on a prior analysis, we know that a decrease of 10% in the price would roughly increase the demand by 13.75%, a slight surplus. Following the price elasticity of demand model, we expect an increase of around 37.5% in number of Sold Units. Let us take a look if this is true by loading the data for the first day in 2022 and taking the fraction between the numbers of Sold Units from both years for that day.
+# MAGIC ### What are the key factors explaining the quality of a particular product?
 # MAGIC
-# MAGIC Since we learned about the data generation process, we can also generate new samples:
+# MAGIC Up to this point, we've focused on causal analysis at an aggregated level. However, DoWhy also enables us to perform the same analysis at the sample level. Let’s generate some new samples using the fitted graph:
 
 # COMMAND ----------
 
@@ -202,14 +187,9 @@ display(new_batch)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC Surprisingly, we only increased the number of sold units by ~19%. This will certainly impact the profit given that the revenue is much smaller than expected. Let us compare it with the previous year at the same time:
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC Indeed, the profit dropped by ~8.5%. Why is this the case seeing that we would expect a much higher demand due to the decreased price? Let us investigate what is going on here.
+# MAGIC We generated an additional 100 samples, including 7 products with `quality = 1`. These products originated from 2 instances of `dimension = 1`, 2 instances of `torque_checks = 1`, and 3 instances of `visual_inspection = 1`.
 # MAGIC
-# MAGIC In order to figure out what contributed to the Profit drop, we can make use of DoWhy’s anomaly attribution feature. Here, we only need to specify the target node we are interested in (the Profit) and the anomaly sample we want to analyze (the first day of 2022). These results are then plotted in a bar chart indicating the attribution scores of each node for the given anomaly sample:
+# MAGIC To identify the factors contributing to the quality drop, we can leverage DoWhy's [anomaly attribution feature](https://www.pywhy.org/dowhy/v0.11/user_guide/causal_tasks/root_causing_and_explaining/anomaly_attribution.html). This feature requires specifying the target node of interest (`quality`) and the anomaly sample to be analyzed. The results are displayed in a bar chart, showing the attribution scores of each node for the specified anomaly sample:
 
 # COMMAND ----------
 
@@ -227,6 +207,15 @@ bar_plot({k: v[0] for k, v in attributions.items()}, ylabel='Anomaly attribution
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC The bar chart above displays the anomaly attribution scores for the nodes related to a product that failed the quality check due to dimensional verification. Positive values indicate nodes that increased the likelihood of the sample being classified as an anomaly, while negative values indicate the opposite. More details about the interpretation of the score can be found in the corresponding [reserach paper](https://proceedings.mlr.press/v162/budhathoki22a.html).
+# MAGIC
+# MAGIC Notably, `worker` and `machine` emerge as the dominant factors influencing `quality`. This aligns with our data generation function, where `worker = 1` and `machine = 1` were configured to be less precise in positioning and aligning materials and equipment. This effect is also reflected in the positive contribution of `position_alignment`. However, DoWhy attributes the cause more strongly to `worker` and `machine` than to `position_alignment` because it recognizes `position_alignment` as a consequence of the combined impact of `worker = 1` and `machine = 1`.
+# MAGIC
+# MAGIC ***Note: Given the stochastic nature of sampling, the displayed anomaly distribution might differ slightly from what is discussed here. We encourage users to experiment with the `attribute_anomalies` feature using a variety of samples.***
+
+# COMMAND ----------
+
 defects_torque_checks = new_batch[new_batch['torque_checks'] == 1]
 display(defects_torque_checks)
 
@@ -238,6 +227,13 @@ attributions = gcm.attribute_anomalies(
   anomaly_samples=pd.DataFrame([defects_torque_checks.iloc[0]])
   )
 bar_plot({k: v[0] for k, v in attributions.items()}, ylabel='Anomaly attribution score')
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC This time, the bar chart above shows the anomaly attribution scores for the nodes related to a product that failed the torque resistance checks. `chamber_humidity` emerges as the primary factor influencing `quality`. This is not surprising considering our data generation logic, where higher `chamber_humidity` is associated with lower material-machine interface `temperature` due to condensation and evaporation. Examining the values of `chamber_humidity` (0.79) and `temperature` (899) for this sample in the table above, we see that they deviate significantly from their expected standard values (0.5 and 1250—see the function `generate_data` in the notebook `99_utils` for more detail), which is consistent with the attribution results.
+# MAGIC
+# MAGIC ***Note: Given the stochastic nature of sampling, the displayed anomaly distribution might differ slightly from what is discussed here. We encourage users to experiment with the `attribute_anomalies` feature using a variety of samples.***
 
 # COMMAND ----------
 
@@ -256,9 +252,14 @@ bar_plot({k: v[0] for k, v in attributions.items()}, ylabel='Anomaly attribution
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC A positive attribution score means that the corresponding node contributed to the observed anomaly, which is in our case the drop in Profit. A negative score of a node indicates that the observed value for the node is actually reducing the likelihood of the anomaly (e.g., a higher demand due to the decreased price should increase the profit). More details about the interpretation of the score can be found in the corresponding [reserach paper](https://proceedings.mlr.press/v162/budhathoki22a.html). Interestingly, the Page Views stand out as a factor explaining the Profit drop that day as indicated in the bar chart shown here.
+# MAGIC Our final bar chart above displays the anomaly attribution scores for the nodes related to a product that failed the visual inspection. `chamber_humidity` and `chamber_temperature` stand out as the primary factors influencing `quality`. Interestingly, unlike the previous example, this anomaly is attributed to `chamber_humidity` being significantly lower than the standard value. Combined with the elevated `chamber_temperature`, this led to a higher material-machine interface `temperature`, creating conditions for undesirable outcomes such as excessive welding spatters, hence failing the visual inspection checks. As with the earlier examples, causal machine learning enables us to transparently identify combinations of attributes that contribute to desired or undesired outcomes, offering greater insight compared to traditional correlation-based machine learning techniques.
 # MAGIC
-# MAGIC While this method gives us a point estimate of the attributions for the particular models and parameters we learned, we can also use DoWhy’s confidence interval feature, which incorporates uncertainties about the fitted model parameters and algorithmic approximations:
+# MAGIC ***Note: Given the stochastic nature of sampling, the displayed anomaly distribution might differ slightly from what is discussed here. We encourage users to experiment with the `attribute_anomalies` feature using a variety of samples.***
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC Although this method provides a point estimate of the attributions based on the specific models and parameters learned, we can also leverage DoWhy’s [confidence interval feature](https://www.pywhy.org/dowhy/v0.9.1/user_guide/gcm_based_inference/estimating_confidence_intervals.html). This feature accounts for uncertainties in the fitted model parameters and algorithmic approximations:
 
 # COMMAND ----------
 
@@ -287,32 +288,27 @@ bar_plot(median_attributions, confidence_intervals, 'Anomaly attribution score')
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC Note, in this bar chart we see the median attributions over multiple runs on smaller data sets, where each run re-fits the models and re-evaluates the attributions. We get a similar picture as before, but the confidence interval of the attribution to Sold Units also contains zero, meaning its contribution is insignificant. But some important questions still remain: Was this only a coincidence and, if not, which part in our system has changed? To find this out, we need to collect some more data.
+# MAGIC The results are similar to before, but the confidence interval for some nodes, like `chamber_humidity`, includes zero, indicating that its contribution is insignificant.
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC > Note that the results differ depending on the selected data, since they are sample specific. On other days, other factors could be relevant. Furthermore, note that the analysis (including the confidence intervals) always relies on the modeling assumptions made. In other words, if the models change or have a poor fit, one would also expect different results.
+# MAGIC ### What caused the quality drop in the new batch of products?
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### What caused the quality drop in the new batch of processed products?
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC While the previous analysis is based on a single observation, let us see if this was just coincidence or if this is a persistent issue. When preparing the quarterly business report, we have some more data available from the first three months. We first check if the profit dropped on average in the first quarter of 2022 as compared to 2021. Similar as before, we can do this by taking the fraction between the average Profit of 2022 and 2021 for the first quarter:
+# MAGIC In the previous section, we focused on anomaly attribution for a single observation. Now, let’s explore a shift in quality across batches of processed products. To illustrate this, we’ll simulate a scenario where `worker = 0`, who previously processed 75% of the products, has taken leave, and `worker = 1` has taken over her role. In this new batch, `worker = 1` processes 75% of the products as a manual operator, while `worker = 0` processes only 25%. We can use the same `generate_data` function from the `99_utils` notebook to create this data by specifying the `p_worker` argument. For more details, refer to the `99_utils` notebook.
 
 # COMMAND ----------
 
 test = generate_data(catalog, schema, 100, p_worker=0.25, train=False)
-display(test)
+test.describe()
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC Indeed, the profit drop is persistent in the first quarter of 2022. Now, what is the root cause of this? Let us apply the [distribution change method](https://proceedings.mlr.press/v130/budhathoki21a.html) to identify the part in the system that has changed:
+# MAGIC Indeed, the defect rate has dropped from compared to the dataset we used to train the models. Now, let's see if DoWhy can identify the root cause of this? We will apply the [distribution change method](https://proceedings.mlr.press/v130/budhathoki21a.html) to identify the part in the system that has changed:
 
 # COMMAND ----------
 
@@ -327,26 +323,19 @@ median_attributions, confidence_intervals = gcm.confidence_intervals(
 
 # COMMAND ----------
 
-bar_plot(median_attributions, confidence_intervals, 'Quality change attribution in defect rate')
+bar_plot(median_attributions, confidence_intervals, 'Change attribution in defect rate')
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC In our case, the distribution change method explains the change in the mean of Profit, i.e., a negative value indicates that a node contributes to a decrease and a positive value to an increase of the mean. Using the bar chart, we get now a very clear picture that the change in Unit Price has actually a slightly positive contribution to the expected Profit due to the increase of Sold Units, but it seems that the issue is coming from the Page Views which has a negative value. While we already understood this as a main driver of the drop at the beginning of 2022, we have now isolated and confirmed that something changed for the Page Views as well. Let’s compare the average Page Views with the previous year.
-
-# COMMAND ----------
-
-(1 - train['worker'].mean() / test['worker'].mean()) * 100
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC Indeed, the number of Page Views dropped by ~14%. Since we eliminated all other potential factors, we can now dive deeper into the Page Views and see what is going on there. This is a hypothetical scenario, but we could imagine it could be due to a change in the search algorithm which ranks this product lower in the results and therefore drives fewer customers to the product page. Knowing this, we could now start mitigating the issue.
+# MAGIC In our case, the distribution change method explains the change in the defect rate, i.e., a positive value to an increase of the mean and a negative value indicates that a node contributes to a decrease. Using the bar chart, we get a very clear picture that the change in `worker` has actually a significant positive contribution to the expected defect rate due to the increase of `position_alignment`.
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ## Wrap up
+# MAGIC
+# MAGIC In this notebook, we performed causal analysis, including causal attributions and root cause analysis, across different levels of data granularity. We explored how to use DoWhy's functions, such as `attribute_anomalies` and `confidence_intervals`, and interpreted their results.
 
 # COMMAND ----------
 
