@@ -308,7 +308,7 @@ test.describe()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC Indeed, the defect rate has dropped from compared to the dataset we used to train the models. Now, let's see if DoWhy can identify the root cause of this? We will apply the [distribution change method](https://proceedings.mlr.press/v130/budhathoki21a.html) to identify the part in the system that has changed:
+# MAGIC Indeed, the defect rate has risen from 0.075 to 0.2 compared to the dataset used to train the models. Let’s now see if DoWhy can pinpoint the root cause of this. We will apply the [distribution change method](https://proceedings.mlr.press/v130/budhathoki21a.html) to identify the part in the system that has changed:
 
 # COMMAND ----------
 
@@ -335,7 +335,7 @@ bar_plot(median_attributions, confidence_intervals, 'Change attribution in defec
 # MAGIC %md
 # MAGIC ## Wrap up
 # MAGIC
-# MAGIC In this notebook, we performed causal analysis, including causal attributions and root cause analysis, across different levels of data granularity. We explored how to use DoWhy's functions, such as `attribute_anomalies` and `confidence_intervals`, and interpreted their results.
+# MAGIC In this notebook, we performed causal analysis, including causal attributions and root cause analysis, across different levels of data granularity. We explored how to use DoWhy's functions, such as `attribute_anomalies` and `confidence_intervals`, and interpreted their results. In the next notebook, we will deploy the fitted graph to Databricks Model Serving and explore how to enable real-time causal analysis.
 
 # COMMAND ----------
 

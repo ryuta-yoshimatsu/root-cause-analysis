@@ -258,7 +258,7 @@ token = (
     dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().get()
 )
 
-def generate_attribution(dataset, url=endpoint_url, databricks_token=token):
+def generate_anomaly_attribution(dataset, url=endpoint_url, databricks_token=token):
     headers = {
         "Authorization": f"Bearer {databricks_token}",
         "Content-Type": "application/json",
@@ -274,8 +274,11 @@ def generate_attribution(dataset, url=endpoint_url, databricks_token=token):
 
 # COMMAND ----------
 
-anomaly = spark.read.table(f"{catalog}.{schema}.data_first_day_2022").toPandas().set_index("Date")
-result = generate_attribution(anomaly)
+train = spark.read.table(f"{catalog}.{schema}.data_manufacturing")
+train = train.toPandas()
+defects = train[train['quality'] == 1]
+
+result = generate_anomaly_attribution(pd.DataFrame([defects.iloc[0]]))
 print(result["predictions"][0])
 
 # COMMAND ----------
