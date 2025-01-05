@@ -6,6 +6,8 @@
 
 # MAGIC %md
 # MAGIC # Fit Causal Models to Data
+# MAGIC
+# MAGIC In this notebook, we will assign causal mechanisms to the causal graph defined in the previous notebook. Next, we will evaluate the fitted graph to determine how well it represents the underlying data generation process. Finally, we will register the fitted graph with MLflow for future use.
 
 # COMMAND ----------
 
@@ -209,7 +211,7 @@ gcm.fit(scm, pdf)
 # MAGIC %md
 # MAGIC ## Evaluate the fitted causal models
 # MAGIC
-# MAGIC The fit method learns the parameters of the generative models in each node. Let's have a look into the performance of the causal mechanisms and how well they capture the distribution:
+# MAGIC The fit method trains the generative models for each node by learning their parameters. Let's examine the performance of these causal mechanisms and evaluate how well they capture the underlying distribution:
 
 # COMMAND ----------
 
@@ -224,17 +226,18 @@ print(
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC The fitted causal mechanisms are fairly good representations of the data generation process, with some minor inaccuracies. However, this is to be expected given the small sample size and relatively small signal-to-noise ratio for many nodes. Most importantly, all the baseline mechanisms did not perform better, which is a good indicator that our model selection is appropriate. Based on the evaluation, we also do not reject the given causal graph.
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC > The selection of baseline models or the p-value for graph falsification can be configured as well. For more details, take a look at the corresponding evaluate_causal_model documentation.
+# MAGIC Broadly, the `gcm.evaluate_causal_model` method performs four types of evaluations on the fitted graph: evaluation of causal mechanisms, assessment of the invertible functional causal model assumption, evaluation of the generated distribution, and analysis of the causal graph structure. While we won't delve into the details of these tests here, we encourage users to check DoWhy's [documentation](https://www.pywhy.org/dowhy/v0.11.1/user_guide/modeling_gcm/model_evaluation.html) and [source code](https://github.com/py-why/dowhy/blob/main/dowhy/gcm/model_evaluation.py) for a deeper understanding.
+# MAGIC
+# MAGIC In our case, using a synthetically generated dataset, the fitted causal mechanisms largely align well with the data generation process. However, in real-world scenarios, datasets are often messier, have smaller sample sizes, or exhibit lower signal-to-noise ratios. In addition, the graph might be missing key confounders. For these reasons, it’s crucial to understand the evaluation techniques mentioned above and recognize how each test addresses specific issues.
+# MAGIC
+# MAGIC If the evaluation results indicate signs of misspecification, you can choose to revisit steps such as data collection, causal discovery, or modeling of causal mechanisms, or proceed with your analysis despite the issues. The output cell above states that the evaluations provide insights into the quality of the causal model but should not be overinterpreted, as some causal relationships are inherently challenging to model. Additionally, many algorithms demonstrate robustness to misspecifications or suboptimal performance of causal mechanisms.
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ## Register the fitted causal models to Unity Catalog using MLflow
+# MAGIC
+# MAGIC Once we are satisfied with our causal model, we can register it with Unity Catalog to ensure proper governance. Later, we will load this model to perform causal analysis. While MLflow does not natively support the `gcm.StructuralCausalModel` (SCM) object, this is not a problem. We can simply wrap the SCM object using `mlflow.pyfunc.PythonModel` and log it in MLflow instead.
 
 # COMMAND ----------
 
@@ -267,33 +270,52 @@ from mlflow.models.signature import ModelSignature
 from mlflow.types import DataType, Schema, ColSpec
 from mlflow.models import infer_signature
 
-# Define input and output schema
-input_example = pdf.iloc[[0]]
+# Define the input example for the model and infer its input-output signature
+input_example = pdf.iloc[[0]]  # Select a single row as an input example
 signature = infer_signature(
     model_input=input_example, 
     model_output=pd.DataFrame(gcm.attribute_anomalies(scm, target_node="quality", anomaly_samples=input_example)),
-    )
+)
+
+# Set the registered model name based on catalog, schema, and model
 registered_model_name = f"{catalog}.{schema}.{model}"
 
+# Start an MLflow run to log the causal model and its related metadata
 with mlflow.start_run(run_name="causal_model") as run:
+    # Log the causal model using MLflow's pyfunc interface
     mlflow.pyfunc.log_model(
         "model",
-        python_model=SCM(scm, causal_graph, "quality"),
+        python_model=SCM(scm, causal_graph, "quality"),  # Wrap the SCM object in a custom Python model
         pip_requirements=[
-            "dowhy==" + dowhy.__version__, 
+            "dowhy==" + dowhy.__version__,  # Log required package versions
             "pandas==" + pd.__version__,
-            ],
-        signature=signature,
-        input_example=input_example,
-        registered_model_name=registered_model_name,
+        ],
+        signature=signature,  # Log the inferred input-output signature
+        input_example=input_example,  # Log an example input
+        registered_model_name=registered_model_name,  # Register the model in Unity Catalog
     )
+    
+    # Log parameters related to the model's configuration or settings
     mlflow.log_params({
         **{
-            "override_models": "True", 
-            "quality": "gcm.auto.AssignmentQuality.GOOD",
-        }})
+            "override_models": "True",  # Specify if existing models should be overridden
+            "quality": "gcm.auto.AssignmentQuality.GOOD",  # Record the quality of assignments
+        }
+    })
+    
+    # Log the causal graph artifact for reference or reuse
     mlflow.log_artifact(local_path, artifact_path="causal_graph")
-    mlflow.log_input(mlflow.data.from_spark(df=sdf, table_name=table_name, version=version), context="training")
+    
+    # Log the input dataset used during the training or analysis process
+    mlflow.log_input(
+        mlflow.data.from_spark(df=sdf, table_name=table_name, version=version),  # Input dataset information
+        context="training",  # Context of the dataset usage
+    )
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC Let's assign the "champion" alias to the newly registered model. This makes it easier to load this specific version later by referencing the alias directly.
 
 # COMMAND ----------
 
@@ -318,6 +340,8 @@ mlflow_client.set_registered_model_alias(registered_model_name, "champion", mode
 
 # MAGIC %md
 # MAGIC ## Wrap up
+# MAGIC
+# MAGIC This concludes this notebook. Here, we assigned causal mechanisms to the causal graph defined in the previous notebook. We then evaluated the fitted graph to assess how well it captures the underlying data generation process. Finally, we registered the fitted graph using MLflow for future use. In the next notebook, we will leverage the fitted graph to conduct causal analyses.
 
 # COMMAND ----------
 
