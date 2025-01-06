@@ -6,8 +6,11 @@
 
 # MAGIC %md
 # MAGIC
-# MAGIC #Create a model serving endpoint with Python
-# MAGIC Now we have a fine-tuned model registered in Unity Catalog, our final step is to deploy this model behind a Model Serving endpoint. This notebook covers wrapping the REST API queries for model serving endpoint creation, updating endpoint configuration based on model version, and endpoint deletion with Python for your Python model serving workflows.
+# MAGIC # Create a model serving endpoint for online causal analysis
+# MAGIC
+# MAGIC With our structural causal model now registered in Unity Catalog, the final step is deploying it behind a Model Serving endpoint. This setup is crucial for conducting online causal analyses, such as anomaly attribution, in real time. Identifying the root causes of defective products quickly helps minimize the costs associated with their impact.
+# MAGIC
+# MAGIC This notebook demonstrates how to streamline Python-based model serving workflows. It uses [Databricks SDK](https://docs.databricks.com/en/dev-tools/sdk-python.html) for creating a model serving endpoint, updating the endpoint configuration to use specific model versions, making prediction requests, and deleting endpoints when needed.
 
 # COMMAND ----------
 
@@ -20,13 +23,18 @@
 
 # COMMAND ----------
 
-import mlflow
-mlflow.set_registry_uri("databricks-uc")
-client = mlflow.tracking.MlflowClient()
+# MAGIC %md
+# MAGIC ## Define variables and set MLflow experiment
 
 # COMMAND ----------
 
-# MAGIC %md Specify some variables.
+import mlflow
+
+# Set the registry URI to Databricks Unity Catalog
+mlflow.set_registry_uri("databricks-uc")
+
+# Create an MLflow client to interact with the tracking server
+client = mlflow.tracking.MlflowClient()
 
 # COMMAND ----------
 
@@ -40,44 +48,18 @@ model_serving_endpoint_name = f"root-cause-analysis-{model}"
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Get token and model version
-# MAGIC  The following section demonstrates how to provide both a token for the API, which can be obtained from the notebook and how to get the latest model version you plan to serve and deploy.
-
-# COMMAND ----------
-
-token = (
-    dbutils.notebook.entry_point.getDbutils()
-    .notebook()
-    .getContext()
-    .apiToken()
-    .getOrElse(None)
-)
-
-# With the token, you can create our authorization header for our subsequent REST calls
-headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-
-# Next you need an endpoint at which to execute your request which you can get from the notebook's tags collection
-java_tags = dbutils.notebook.entry_point.getDbutils().notebook().getContext().tags()
-
-# This object comes from the Java CM - Convert the Java Map opject to a Python dictionary
-tags = sc._jvm.scala.collection.JavaConversions.mapAsJavaMap(java_tags)
-
-# Lastly, extract the Databricks instance (domain name) from the dictionary
-instance = tags["browserHostName"]
-
-champion_version = client.get_model_version_by_alias(model_name, "champion")
-model_version = champion_version.version
-
-# COMMAND ----------
-
-# MAGIC %md
 # MAGIC ## Set up configurations
-# MAGIC Depending on the latency and throughput requirements of your use case, you want to choose the right `workload_type` and `workload_size`. The `auto_capture_config` block specifies where to write the inference logs: i.e. requests and responses from the endpoint with a timestamp. 
+# MAGIC Based on your latency and throughput requirements, it’s important to select the appropriate `workload_type` and `workload_size`. The `auto_capture_config` block defines where to store inference logs, including the requests and responses from the endpoint, along with their timestamps.
 
 # COMMAND ----------
 
 import requests
 
+# Get the champion model version
+champion_version = client.get_model_version_by_alias(model_name, "champion")
+model_version = champion_version.version
+
+# Define the JSON configuration for the model serving endpoint
 my_json = {
     "name": model_serving_endpoint_name,
     "config": {
@@ -98,12 +80,12 @@ my_json = {
     },
 }
 
-# Make sure to the schema for the inference table exists
+# Ensure the schema for the inference table exists
 _ = spark.sql(
     f"CREATE SCHEMA IF NOT EXISTS {catalog}.{log_schema}"
 )
 
-# Make sure to drop the inference table of it exists
+# Drop the inference table if it exists
 _ = spark.sql(
     f"DROP TABLE IF EXISTS {catalog}.{log_schema}.`{model_serving_endpoint_name}_payload`"
 )
@@ -111,189 +93,161 @@ _ = spark.sql(
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC The following defines Python functions that:
-# MAGIC - create a model serving endpoint
-# MAGIC - update a model serving endpoint configuration with the latest model version
-# MAGIC - delete a model serving endpoint
+# MAGIC The following cell defines Python functions that:
+# MAGIC - Create a model serving endpoint
+# MAGIC - Update a model serving endpoint configuration with the latest model version
+# MAGIC - Delete a model serving endpoint
 
 # COMMAND ----------
 
+import mlflow.deployments
 
-def func_create_endpoint(model_serving_endpoint_name):
-    # get endpoint status
-    endpoint_url = f"https://{instance}/api/2.0/serving-endpoints"
-    url = f"{endpoint_url}/{model_serving_endpoint_name}"
-    r = requests.get(url, headers=headers)
-    if "RESOURCE_DOES_NOT_EXIST" in r.text:
-        print(
-            "Creating this new endpoint: ",
-            f"https://{instance}/serving-endpoints/{model_serving_endpoint_name}/invocations",
+def func_create_endpoint(json):
+    client = mlflow.deployments.get_deploy_client("databricks")
+    try:
+        client.get_deployment(json["name"])
+        new_model_version = json["config"]["served_models"][0]["model_version"]
+        client.update_deployment(
+            name=json["name"], 
+            config=json["config"]
         )
-        re = requests.post(endpoint_url, headers=headers, json=my_json)
-    else:
-        new_model_version = (my_json["config"])["served_models"][0]["model_version"]
-        print(
-            "This endpoint existed previously! We are updating it to a new config with new model version: ",
-            new_model_version,
-        )
-        # update config
-        url = f"{endpoint_url}/{model_serving_endpoint_name}/config"
-        re = requests.put(url, headers=headers, json=my_json["config"])
-        # wait till new config file in place
-        import time, json
+    except:
+        client.create_endpoint(
+            name = model_serving_endpoint_name,
+            config = json["config"],
+            )
 
-        # get endpoint status
-        url = f"https://{instance}/api/2.0/serving-endpoints/{model_serving_endpoint_name}"
-        retry = True
-        total_wait = 0
-        while retry:
-            r = requests.get(url, headers=headers)
-            assert (
-                r.status_code == 200
-            ), f"Expected an HTTP 200 response when accessing endpoint info, received {r.status_code}"
-            endpoint = json.loads(r.text)
-            if "pending_config" in endpoint.keys():
-                seconds = 10
-                print("New config still pending")
-                if total_wait < 6000:
-                    # if less the 10 mins waiting, keep waiting
-                    print(f"Wait for {seconds} seconds")
-                    print(f"Total waiting time so far: {total_wait} seconds")
-                    time.sleep(10)
-                    total_wait += seconds
-                else:
-                    print(f"Stopping,  waited for {total_wait} seconds")
-                    retry = False
-            else:
-                print("New config in place now!")
-                retry = False
-
-    assert (
-        re.status_code == 200
-    ), f"Expected an HTTP 200 response, received {re.status_code}. {re}"
-
-
-def func_delete_model_serving_endpoint(model_serving_endpoint_name):
-    endpoint_url = f"https://{instance}/api/2.0/serving-endpoints"
-    url = f"{endpoint_url}/{model_serving_endpoint_name}"
-    response = requests.delete(url, headers=headers)
-    if response.status_code != 200:
-        raise Exception(
-            f"Request failed with status {response.status_code}, {response.text}"
-        )
-    else:
-        print(model_serving_endpoint_name, "endpoint is deleted!")
-    return response.json()
-
+def func_delete_model_serving_endpoint(json):
+    client = mlflow.deployments.get_deploy_client("databricks")
+    client.delete_endpoint(json["name"])
+    print(json["name"], "endpoint is deleted!")
 
 # COMMAND ----------
 
-func_create_endpoint(model_serving_endpoint_name)
+# MAGIC %md
+# MAGIC Let's create an endpoint.
+
+# COMMAND ----------
+
+func_create_endpoint(my_json)
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ## Wait for the endpoint to be ready
 # MAGIC
-# MAGIC The `wait_for_endpoint()` function defined in the following command gets and returns the serving endpoint status.
+# MAGIC The `wait_for_endpoint()` function below, defined in the following command, retrieves and returns the status of the serving endpoint. We will wait until the endpoint is fully ready.
 
 # COMMAND ----------
 
-import time, mlflow
+def wait_for_endpoint(endpoint_name):
+    '''Wait for a model serving endpoint to be ready'''
+    from databricks.sdk import WorkspaceClient
+    from databricks.sdk.service.serving import EndpointStateReady, EndpointStateConfigUpdate
+    import time
 
-def wait_for_endpoint():
-    endpoint_url = f"https://{instance}/api/2.0/serving-endpoints"
-    while True:
-        url = f"{endpoint_url}/{model_serving_endpoint_name}"
-        response = requests.get(url, headers=headers)
-        assert (
-            response.status_code == 200
-        ), f"Expected an HTTP 200 response, received {response.status_code}\n{response.text}"
-
-        status = response.json().get("state", {}).get("ready", {})
-        # print("status",status)
-        if status == "READY":
-            print(status)
-            print("-" * 80)
+    # Initialize WorkspaceClient
+    w = WorkspaceClient()
+    state = ""
+    for i in range(200):
+        state = w.serving_endpoints.get(endpoint_name).state
+        if state.config_update == EndpointStateConfigUpdate.IN_PROGRESS:
+            if i % 40 == 0:
+                print(f"Waiting for endpoint to deploy {endpoint_name}. Current state: {state}")
+            time.sleep(10)
+        elif state.ready == EndpointStateReady.READY:
+            print('endpoint ready.')
             return
         else:
-            print(f"Endpoint not ready ({status}), waiting 300 seconds")
-            time.sleep(300)  # Wait 300 seconds
+            break
+    raise Exception(f"Couldn't start the endpoint, timeout, please check your endpoint for more details: {state}")
 
-api_url = mlflow.utils.databricks_utils.get_webapp_url()
-
-wait_for_endpoint()
+wait_for_endpoint(my_json["name"])
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ## Score the model
-# MAGIC The following cell defines the `generate_image()` function and sends an example generation request under the `payload_json` variable.
+# MAGIC
+# MAGIC Once the endpoint is operational, we can start sending requests. The following cell defines the `get_anomaly_attribution()` function, which sends an anomaly attribution request to the endpoint.
 
 # COMMAND ----------
 
-import os
-import requests
-import pandas as pd
-import json
-import matplotlib.pyplot as plt
+from mlflow.deployments import get_deploy_client
 
-token = (
-    dbutils.notebook.entry_point.getDbutils()
-    .notebook()
-    .getContext()
-    .apiToken()
-    .getOrElse(None)
-)
-
-java_tags = dbutils.notebook.entry_point.getDbutils().notebook().getContext().tags()
-tags = sc._jvm.scala.collection.JavaConversions.mapAsJavaMap(java_tags)
-instance = tags["browserHostName"]
-
-# Replace URL with the end point invocation url you get from Model Seriving page.
-endpoint_url = (
-    f"https://{instance}/serving-endpoints/{model_serving_endpoint_name}/invocations"
-)
-token = (
-    dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().get()
-)
-
-def generate_anomaly_attribution(dataset, url=endpoint_url, databricks_token=token):
-    headers = {
-        "Authorization": f"Bearer {databricks_token}",
-        "Content-Type": "application/json",
-    }
+def get_anomaly_attribution(endpoint, dataset):
+    client = get_deploy_client("databricks")
     ds_dict = {"dataframe_split": dataset.to_dict(orient="split")}
-    data_json = json.dumps(ds_dict, allow_nan=True)
-    response = requests.request(method="POST", headers=headers, url=url, data=data_json)
-    if response.status_code != 200:
-        raise Exception(
-            f"Request failed with status {response.status_code}, {response.text}"
-        )
-    return response.json()
+    response = client.predict(endpoint=endpoint, inputs=ds_dict)
+    return response["predictions"][0]
 
 # COMMAND ----------
+
+# MAGIC %md
+# MAGIC Let’s query the table containing the training data and select a sample with `quality = 1` to test the endpoint.
+
+# COMMAND ----------
+
+import pandas as pd
 
 train = spark.read.table(f"{catalog}.{schema}.data_manufacturing")
 train = train.toPandas()
 defects = train[train['quality'] == 1]
 
-result = generate_anomaly_attribution(pd.DataFrame([defects.iloc[0]]))
-print(result["predictions"][0])
+display(pd.DataFrame([defects.iloc[0]]))
+
+# COMMAND ----------
+
+# MAGIC %md 
+# MAGIC Send a request using Databricks SDK.
+
+# COMMAND ----------
+
+import pandas as pd
+from mlflow.deployments import get_deploy_client
+
+client = get_deploy_client("databricks")
+dataset = pd.DataFrame([defects.iloc[0]])
+result = get_anomaly_attribution(my_json["name"], dataset)
+
+display(result)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC Looks great! But we can even visualize the response:
+
+# COMMAND ----------
+
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(10, 6))
+pd.Series(result).plot(kind='bar', color='red', edgecolor='black')
+plt.title('Anomaly Attribution', fontsize=16)
+plt.xlabel('Features', fontsize=14)
+plt.ylabel('Importance', fontsize=14)
+plt.xticks(rotation=45, ha='right')
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.tight_layout()
+plt.show()
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ## Delete the endpoint
+# MAGIC
+# MAGIC Although the endpoint is configured to scale down to zero when there is no incoming traffic, let’s clean up and delete the endpoint:
 
 # COMMAND ----------
 
-#func_delete_model_serving_endpoint(model_serving_endpoint_name)
+func_delete_model_serving_endpoint(my_json)
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ## Wrap up
+# MAGIC
+# MAGIC That’s it! In this notebook, we took our structural causal model registered in Unity Catalog and deployed it behind a Model Serving endpoint. Additionally, we explored how to interact with this endpoint using the Databricks SDK.
 
 # COMMAND ----------
 

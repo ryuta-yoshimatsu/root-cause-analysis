@@ -263,6 +263,7 @@ class SCM(mlflow.pyfunc.PythonModel):
 # COMMAND ----------
 
 from dowhy import gcm
+import sklearn
 import mlflow
 import mlflow.data
 from mlflow.data.spark_dataset import SparkDataset
@@ -289,6 +290,7 @@ with mlflow.start_run(run_name="causal_model") as run:
         pip_requirements=[
             "dowhy==" + dowhy.__version__,  # Log required package versions
             "pandas==" + pd.__version__,
+            "scikit-learn==" + sklearn.__version__,
         ],
         signature=signature,  # Log the inferred input-output signature
         input_example=input_example,  # Log an example input
