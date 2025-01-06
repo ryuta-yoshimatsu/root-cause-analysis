@@ -150,7 +150,7 @@ mlflow.set_experiment(experiment_name)
 # MAGIC **Visual Inspection** impacts:  
 # MAGIC → Quality: If a product fails the visual insprection checks, it fails the quality check.  
 # MAGIC
-# MAGIC The attributes and the cause-effect relationships between them can be described in the form of a directed acyclic graph, which represents our causal graph in the following.
+# MAGIC The attributes and the cause-effect relationships between them can be described in the form of a directed acyclic graph, which represents our causal graph in the following. In real-world production lines, the output of one process serves as the input for the next, with quality control typically occurring after several processes. However, for simplicity in this example, we have set up a quality control step immediately following the first process (see figure below).
 
 # COMMAND ----------
 
