@@ -14,7 +14,7 @@ In this series of notebooks, we demonstrate how causal machine learning techniqu
 
 ## Reference Architecture
 
-<img src='https://github.com/ryuta-yoshimatsu/root-cause-analysis/blob/main/images/causal-graph.png' width=800>
+<img src='https://github.com/ryuta-yoshimatsu/root-cause-analysis/blob/main/images/manufacturing-process-A.png' width=800>
 
 ## Authors
 
