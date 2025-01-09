@@ -7,7 +7,7 @@
 # MAGIC %md
 # MAGIC # Appendix
 # MAGIC
-# MAGIC In this notebook, we will explore two additional topics that are not immediately required for using the solution accelerator, hence appendix. The first focuses on automated or semi-automated causal discovery, and the second examines correlational machine learning and its explainability of causal factors.
+# MAGIC In this notebook, we explore two additional topics that are not immediately required for using the solution accelerator, hence appendix. The first focuses on automated or semi-automated causal discovery, and the second examines correlational machine learning and its explainability of causal factors.
 
 # COMMAND ----------
 
@@ -175,7 +175,7 @@ exp.show_in_notebook()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC While `lime` accurately identifies attributes that contributed positively to the sample being classified as an anomaly, its attribution of root cause contribution is not informative. It assigns the highest weights to the variables `torque_checks`, `dimensions`, and `visual_inspections`, which are actually consequences of the true causes. In this sample, we observe a failed `torque_checks`, and from the causal analysis conducted in the notebook `03_offline_analysis`, we know the true causes are likely `chamber_temperature`, `chamber_humidity`, or a combination of the two.
+# MAGIC While `lime` accurately identifies attributes that contributed positively to the sample being classified as an anomaly, its attribution of root cause contribution is not informative. It assigns the highest weights to the variables `torque_checks`, `dimensions`, and `visual_inspections`, which are actually symptoms of the true causes. In this sample, we observe a failed `torque_checks`, and from the causal analysis conducted in the notebook `03_offline_analysis`, we know the true causes are likely `chamber_temperature`, `chamber_humidity`, or a combination of the two, which were assigned negligible weights above.
 # MAGIC
 # MAGIC Now let's take a look at `shap`:
 

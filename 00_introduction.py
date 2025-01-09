@@ -7,36 +7,36 @@
 # MAGIC %md
 # MAGIC <img src='https://github.com/databricks-industry-solutions/.github/raw/main/profile/solacc_logo_wide.png' width="1000" ></img>
 # MAGIC
-# MAGIC # Manufacturing Root Cause Analysis
+# MAGIC # Manufacturing Root Cause Analysis Using Causal AI
 # MAGIC
-# MAGIC Root cause analysis in manufacturing is essential for uncovering and addressing the underlying issues that result in defects, inefficiencies, and failures. By identifying the true sources of problems, manufacturers can implement targeted solutions to prevent recurrence, improving product quality, reducing waste, and enhancing operational efficiency. Additionally, effective root cause analysis ensures compliance with industry standards, minimizes safety risks, and bolsters a manufacturer’s competitive edge in the market.
+# MAGIC Root cause analysis in manufacturing is essential for uncovering the underlying issues that result in defects, inefficiencies, and failures. By identifying the true sources of problems, manufacturers can implement targeted solutions to prevent recurrence, improving product quality, reducing waste, and enhancing operational efficiency. Additionally, effective root cause analysis ensures compliance with industry standards, minimizes safety risks, and bolsters a manufacturer’s competitive edge in the market.
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Challenges with traditional correlational machine learning approaches
+# MAGIC ## Challenges with traditional machine learning approaches
 # MAGIC
-# MAGIC Many manufacturers rely on traditional machine learning techniques based on correlations to address this problem. However, these techniques have significant limitations in root cause analysis due to their inability to capture causality. They often fail to distinguish true root causes from mere symptoms, oversimplifying complex manufacturing processes into tabular data while neglecting the manufacturing process flow. By prioritizing predictive power over causal understanding, these algorithms risk misidentifying root causes. Consequently, they can lead to misleading conclusions, missing critical causal relationships essential for effective root cause analysis in manufacturing. See the section `Appendix B` in the notebook `05_appendix` for more information.
+# MAGIC Many manufacturers rely on traditional machine learning techniques based on correlations to address this problem. However, these techniques have significant limitations in root cause analysis due to their inability to capture causality. They often fail to distinguish true root causes from mere symptoms, oversimplifying complex manufacturing processes into tabular data while neglecting the manufacturing process flow. By prioritizing predictive power over causal understanding, these algorithms risk misidentifying root causes. Consequently, they can lead to misleading conclusions. See the section `Appendix B` in the notebook `05_appendix` for more information.
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Enhancing root cause analysis with causal machine learning
+# MAGIC ## Enhancing root cause analysis with causal AI
 # MAGIC
-# MAGIC Causal machine learning enhances root cause analysis in manufacturing by modeling cause-and-effect relationships within complex production processes, moving beyond mere correlations. It utilizes domain knowledge, often represented as knowledge graphs, to capture the causal relationships among critical variables in manufacturing. This approach distinguishes actual root causes from symptoms, enabling more precise identification of issues and their origins. By integrating observational data from production lines with causal insights, it offers actionable recommendations for defect prevention and process optimization.
+# MAGIC Causal AI enhances root cause analysis in manufacturing by modeling cause-and-effect relationships within complex production processes, moving beyond mere correlations. It utilizes domain knowledge, often represented as knowledge graphs, to capture the causal relationships among critical variables in manufacturing. This approach distinguishes actual root causes from symptoms, enabling more precise identification of issues and their origins. By integrating observational data from production lines with causal insights, causal AI offers actionable recommendations for defect prevention and process optimization.
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ## Case study
 # MAGIC
-# MAGIC In this series of notebooks, we demonstrate how causal machine learning techniques can be applied to perform root cause analysis in a manufacturing process. We create a fictitious scenario where we are responsible for managing a production. Through this setup, we explore how various factors influence the quality of processed products.
+# MAGIC In this series of notebooks, we demonstrate how causal machine learning techniques can be applied to perform root cause analysis in a manufacturing process. We create a fictitious scenario where we are responsible for reducing costs and optimizing the efficiency of a production line. Through this setup, we explore how various factors influence the quality of processed products.
 # MAGIC
 # MAGIC <img src="images/manufacturing-process-A.png" alt="Simplified Flow Between Production Line Processes" width="1000">
 # MAGIC
-# MAGIC Above is a schematic representation of our production line. While real-world production lines are often far more complex and involve significantly larger number of variables, this simplified case serves as a practical starting point for building intuition about the technique. It can also be expanded to tackle more intricate scenarios.
+# MAGIC Above is a schematic representation of our production line. While real-world production lines are often far more complex and involve significantly larger number of variables, this simplified case serves as a practical starting point for building intuition about the technique.
 # MAGIC
-# MAGIC With that said, enjoy exploring the rest of the notebooks!
+# MAGIC With that, enjoy exploring the rest of the notebooks!
 
 # COMMAND ----------
 

@@ -90,9 +90,9 @@ mlflow.set_experiment(experiment_name)
 # MAGIC %md
 # MAGIC ## Case Study
 # MAGIC
-# MAGIC In this example, we examine a manufacturing company's production line to see how various factors affect the quality of processed products. In particular, we focus on products flagged as defective by the quality control system and aim to uncover the potential root cause. To do this, we use Graphical Causal Models (GCM).
+# MAGIC In this example case study, we examine a manufacturing company's production line to see how various factors affect the quality of processed products. In particular, we focus on products flagged as defective by the quality control system and aim to uncover the root cause. To do this, we use Graphical Causal Models (GCM) from DoWhy.
 # MAGIC
-# MAGIC Suppose we are responsible for operating a production line in an assembly. The overall quality of the product depends on several checks, such as dimensional verification, torque checks, and visual inspection. For instance, the product’s dimensions rely on the positional and alignment precision of the mechanical process, as well as the forces and torques exerted by machines. These factors, in turn, may be influenced by environmental conditions like humidity or a manual operator. Now imagine that product quality remains steady for a long period, but suddenly there is a significant drop. Why?
+# MAGIC We are responsible for operating a production line and tasked with reducing costs and optimizing the efficiency. The overall quality of the product depends on several checks. These include dimensional verification, torque checks, and visual inspection. For instance, the product’s dimensions rely on the positional and alignment precision of the mechanical process, as well as the forces and torques exerted by machines. These factors, in turn, may be influenced by environmental conditions like humidity or a manual operator. Now imagine that product quality remains steady for a long period, but suddenly there is a significant drop. Why?
 # MAGIC
 # MAGIC In the following scenario, we will use DoWhy to gain deeper insights into how different factors influence product quality and to identify the causes behind the quality drop. To analyze our problem, we first need to define our assumptions about the causal relationships. For this, we collect measurements of the various factors from our assembly line that may influence product quality. These factors include:
 # MAGIC
@@ -150,7 +150,7 @@ mlflow.set_experiment(experiment_name)
 # MAGIC **Visual Inspection** impacts:  
 # MAGIC → Quality: If a product fails the visual insprection checks, it fails the quality check.  
 # MAGIC
-# MAGIC The attributes and the cause-effect relationships between them can be described in the form of a directed acyclic graph, which represents our causal graph in the following. In real-world production lines, the output of one process serves as the input for the next, with quality control typically occurring after several processes. However, for simplicity in this example, we have set up a quality control step immediately following the first process (see figure below).
+# MAGIC The attributes and the cause-effect relationships between them can be described in the form of a directed acyclic graph, which represents our causal graph below. In real-world production lines, the output of one process serves as the input for the next, with quality control typically occurring after several processes. However, for simplicity in this example, we have set up a quality control step immediately following the first process (see figure below).
 
 # COMMAND ----------
 

@@ -235,7 +235,7 @@ print(
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Register the fitted causal models to Unity Catalog using MLflow
+# MAGIC ## Register the fitted causal graph to Unity Catalog using MLflow
 # MAGIC
 # MAGIC Once we are satisfied with our causal model, we can register it with Unity Catalog to ensure proper governance. Later, we will load this model to perform causal analysis. While MLflow does not natively support the `gcm.StructuralCausalModel` (SCM) object, this is not a problem. We can simply wrap the SCM object using `mlflow.pyfunc.PythonModel` and log it in MLflow instead.
 

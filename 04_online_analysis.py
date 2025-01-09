@@ -206,7 +206,6 @@ display(pd.DataFrame([defects.iloc[0]]))
 import pandas as pd
 from mlflow.deployments import get_deploy_client
 
-client = get_deploy_client("databricks")
 dataset = pd.DataFrame([defects.iloc[0]])
 result = get_anomaly_attribution(my_json["name"], dataset)
 

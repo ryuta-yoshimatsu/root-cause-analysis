@@ -6,11 +6,11 @@
 ## Business Problem
 Root cause analysis is critical in manufacturing for identifying and addressing the underlying factors that lead to defects, inefficiencies, and failures. By pinpointing the true sources of problems, manufacturers can implement targeted solutions to prevent recurrence, enhance product quality, reduce waste, and improve operational efficiency.
 
-Traditional correlation-based machine learning techniques, which many companies rely on, face significant limitations in root cause analysis due to their inability to capture causality. These methods often fail to differentiate true root causes from symptoms, oversimplify complex manufacturing processes into tabular data, and neglect the manufacturing process flow. As a result, they risk producing misleading conclusions and missing crucial causal relationships necessary for effective analysis.
+Traditional correlation-based machine learning techniques, which many companies rely on, face significant limitations in root cause analysis due to their inability to capture causality. These methods often fail to differentiate true root causes from symptoms, oversimplify complex manufacturing processes into tabular data, and neglect the manufacturing process flow. As a result, they risk producing misleading conclusions.
 
 Causal machine learning addresses these challenges by modeling cause-and-effect relationships within complex production processes, moving beyond simple correlations. Leveraging domain knowledge, often represented as knowledge graphs, it captures causal relationships among key variables in manufacturing. This approach enables a clearer distinction between root causes and symptoms, allowing for more accurate identification of issues and their origins.
 
-In this series of notebooks, we demonstrate how causal machine learning techniques can be applied to perform root cause analysis in manufacturing. Using a fictitious scenario where we manage a production line, we explore how various factors affect the quality of processed products, providing a practical introduction to these powerful techniques.
+In this series of notebooks, we demonstrate how causal machine learning techniques can be applied to perform root cause analysis in manufacturing. Using a fictitious scenario where we manage a production line, we explore how various factors affect the quality of processed products, providing a practical introduction to this powerful technique.
 
 ## Reference Architecture
 
