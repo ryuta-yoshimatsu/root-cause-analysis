@@ -183,8 +183,7 @@ print(auto_assignment_summary)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC We see that the auto assignment considered a linear model for non-root nodes with continuous data: e.g., `position_alignment`, whereas for non-root nodes with binary data, it considered a non-linear model: e.g., `dimensions`. 
-
+# MAGIC The auto-assignment function evaluates both linear and non-linear models for non-root nodes, considering Additive Noise Models (ANMs) for continuous data (e.g., position_alignment) and Discrete ANMs for discrete data (e.g., dimensions), selecting the best-performing model based on metrics such as MSE.
 # COMMAND ----------
 
 # MAGIC %md
