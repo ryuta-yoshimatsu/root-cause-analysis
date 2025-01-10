@@ -215,6 +215,8 @@ print(
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC The above graph provides strong evidence that the causal graph structure identified in the model is capturing real and meaningful relationships in the data, rather than random associations. The extremely low p-values and clear separation between the original and permuted graphs suggest that the causal model has successfully identified genuine structural relationships in the system being studied.
+# MAGIC 
 # MAGIC Broadly, the `gcm.evaluate_causal_model` method performs four types of evaluations on the fitted graph: evaluation of causal mechanisms, assessment of the invertible functional causal model assumption, evaluation of the generated distribution, and analysis of the causal graph structure. While we won't delve into the details of these tests here, we encourage users to check DoWhy's [documentation](https://www.pywhy.org/dowhy/v0.11.1/user_guide/modeling_gcm/model_evaluation.html) and [source code](https://github.com/py-why/dowhy/blob/main/dowhy/gcm/model_evaluation.py) for a deeper understanding.
 # MAGIC
 # MAGIC In our case, using a synthetically generated dataset, the fitted causal mechanisms largely align well with the data generation process. However, in real-world scenarios, datasets are often messier, have smaller sample sizes, or exhibit lower signal-to-noise ratios. In addition, the graph might be missing key confounders. For these reasons, it’s crucial to understand the evaluation techniques mentioned above and recognize how each test addresses specific issues.
