@@ -27,8 +27,8 @@
 
 # DBTITLE 1,Install graphviz from nicer visualization
 # MAGIC %sh 
-# MAGIC sudo apt-get -qq update
-# MAGIC sudo apt-get -y -qq install graphviz libgraphviz-dev
+# MAGIC apt-get update && apt-get install -y graphviz graphviz-dev
+
 
 # COMMAND ----------
 
@@ -66,23 +66,18 @@ import dowhy
 import networkx as nx
 
 # COMMAND ----------
+user_name = spark.sql("SELECT current_user()").collect()[0][0]
+first_name = user_name.split(".")[0]
+catalog = f'causal_solacc_{first_name}'     # Change this to your catalog name
+schema = f'rca_{first_name}'                # Change this to your schema name
 
-catalog = 'causal_solacc'     # Change this to your catalog name
-schema = 'rca'                # Change this to your schema name
+setup_unity_catalog(catalog, schema)
 
-# Make sure the catalog exists
-_ = spark.sql(f"CREATE CATALOG IF NOT EXISTS {catalog}")
-
-# Make sure the schema exists
-_ = spark.sql(f"CREATE SCHEMA IF NOT EXISTS {catalog}.{schema}")
 
 # COMMAND ----------
 
-# Get the current user name
-current_user_name = spark.sql("SELECT current_user()").collect()[0][0]
-
 # Set the experiment name
-experiment_name = f"/Users/{current_user_name}/rca_manufacturing"
+experiment_name = f"/Users/{user_name}/rca_manufacturing"
 mlflow.set_experiment(experiment_name)
 
 # COMMAND ----------
@@ -90,72 +85,68 @@ mlflow.set_experiment(experiment_name)
 # MAGIC %md
 # MAGIC ## Case Study
 # MAGIC
-# MAGIC In this example case study, we examine a manufacturing company's production line to see how various factors affect the quality of processed products. In particular, we focus on products flagged as defective by the quality control system and aim to uncover the root cause. To do this, we use Graphical Causal Models (GCM) from DoWhy.
+# MAGIC In this example, we analyze a manufacturing process to identify root causes of quality issues using Graphical Causal Models (GCM) from DoWhy.
 # MAGIC
-# MAGIC We are responsible for operating a production line and tasked with reducing costs and optimizing the efficiency. The overall quality of the product depends on several checks. These include dimensional verification, torque checks, and visual inspection. For instance, the product’s dimensions rely on the positional and alignment precision of the mechanical process, as well as the forces and torques exerted by machines. These factors, in turn, may be influenced by environmental conditions like humidity or a manual operator. Now imagine that product quality remains steady for a long period, but suddenly there is a significant drop. Why?
+# MAGIC The process flow shows how different factors influence product quality:
 # MAGIC
-# MAGIC In the following scenario, we will use DoWhy to gain deeper insights into how different factors influence product quality and to identify the causes behind the quality drop. To analyze our problem, we first need to define our assumptions about the causal relationships. For this, we collect measurements of the various factors from our assembly line that may influence product quality. These factors include:
+# MAGIC 1. **Input Factors**: Raw Material feeds into four key components:
+# MAGIC    - Worker (manual operator)
+# MAGIC    - Machine settings
+# MAGIC    - Material properties
+# MAGIC    - Environment* (Temperature, Pressure, Humidity in the Chamber)
 # MAGIC
-# MAGIC - **Raw Material**: A binary variable indicating the supplier of the raw material.
-# MAGIC - **Material**: A binary variable indicating the supplier of the additional material used in the process.
-# MAGIC - **Worker**: A binary variable indicating which manual operator was in charge of the process.
-# MAGIC - **Machine**: A binary variable indicating the setting of the machine used in the process.
-# MAGIC - **Environment**: Three nodes with continuous variables that describe the conditions in the process chamber (temperature, humidity, and pressure).
-# MAGIC - **Position & Alignment**: A continuous variable indicating the extent to which the materials and machine deviate from the standard in terms of positioning and alignment.
-# MAGIC - **Force & Torque**: A continuous variable indicating the forces and torques exerted by the machine on the materials.
-# MAGIC - **Temperature**: A continuous variable indicating the temperature of either the materials at the interface with the machine.
-# MAGIC - **Dimensions**: A binary variable indicating the result of the dimensional verification check on the processed material (0: pass, 1: fail).
-# MAGIC - **Torque Checks**: A binary variable indicating the result of the torque-resistance check on the processed material (0: pass, 1: fail).
-# MAGIC - **Visual Inspection**: A binary variable indicating the result of the visual inspection on the processed material (0: pass, 1: fail).
-# MAGIC - **Quality**: A binary variable reflecting the overall check result. If any prior check fails, this fails as well.
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC After discussing with the domain experts, we find the following cause-effect relationships between the variables:
+# MAGIC 2. **Process Measurements**:
+# MAGIC    - Position & Alignment
+# MAGIC    - Force & Torque
+# MAGIC    - Temperature
 # MAGIC
-# MAGIC **Raw Material** impacts:  
-# MAGIC → Forces & Torque: Raw materials from different suppliers have slightly different material properties, requiring different forces and torques to process.
+# MAGIC 3. **Quality Checks**:
+# MAGIC    - Dimensions
+# MAGIC    - Torque Checks
+# MAGIC    - Visual Inspection
 # MAGIC
-# MAGIC **Material** impacts:  
-# MAGIC → Forces & Torque: Materials from different suppliers have slightly different material properties, requiring different forces and torques to process.  
-# MAGIC
-# MAGIC **Worker** impacts:  
-# MAGIC → Position & Alignment: Each worker has different skills and experience, which can affect the precision of materials and machine positioning and alignment.
-# MAGIC
-# MAGIC **Machine** impacts:   
-# MAGIC → Position & Alignment: Each machine setting has varying levels of precision, which can affect the positioning and alignment of the materials and the machine.  
-# MAGIC → Forces & Torque: Each machine setting has varying levels of strength, which can affect the forces and torques exerted on the materials.
-# MAGIC
-# MAGIC **Environment: Chamber Temperature, Chamber Humidity and Chamber Pressure** impact:  
-# MAGIC → Temperature: A higher chamber temperature may increase the temperature at the material-machine interface. Conversely, higher chamber humidity and pressure may reduce the interface temperature due to condensation. 
-# MAGIC
-# MAGIC **Position & Alignment** impact:  
-# MAGIC → Dimensions: Imprecise positioning and alignment of the materials and machine may lead to the processed product failing to meet its dimensional requirements.  
-# MAGIC
-# MAGIC **Forces & Torque** impacts:  
-# MAGIC → Dimensions: Weaker forces and torques applied by the machine to the materials may lead to the processed product failing to meet its dimensional requirements.  
-# MAGIC → Torque Checks: Weaker forces and torques applied by the machine to the materials may cause the processed product to fail its torque resistance requirements.  
-# MAGIC
-# MAGIC **Temperature** impacts:  
-# MAGIC → Torque Checks: Lower temperature at the material-machine interface may result in weaker joints between materials, causing the processed product to fail its torque resistance requirements.  
-# MAGIC → Visual Inspection: Higher temperature at the material-machine interface may result in unwanted appearance at the joints between materials (e.g., welding spatters), causing the processed product to fail its visual inspection requirements.  
-# MAGIC
-# MAGIC **Dimensions** impacts:  
-# MAGIC → Quality: If a product fails the dimensional verification checks, it fails the quality check.  
-# MAGIC
-# MAGIC **Torque Checks** impacts:  
-# MAGIC → Quality: If a product fails the torque resistance checks, it fails the quality check.  
-# MAGIC
-# MAGIC **Visual Inspection** impacts:  
-# MAGIC → Quality: If a product fails the visual insprection checks, it fails the quality check.  
-# MAGIC
-# MAGIC The attributes and the cause-effect relationships between them can be described in the form of a directed acyclic graph, which represents our causal graph below. In real-world production lines, the output of one process serves as the input for the next, with quality control typically occurring after several processes. However, for simplicity in this example, we have set up a quality control step immediately following the first process (see figure below).
+# MAGIC These factors combine to determine the final Quality outcome. When quality drops unexpectedly, we'll use DoWhy to trace the root cause through these causal relationships.
 
 # COMMAND ----------
 
 from IPython.display import Image, display
 display(Image('./images/manufacturing-process-A-simplified.png', width=1000))
+
+# COMMAND ----------
+# MAGIC %md
+# MAGIC ## Example Cause-Effect Relationships
+# MAGIC
+# MAGIC For this manufacturing example, domain experts identified the following relationships. Note that these relationships are specific to this use case - other manufacturing processes or domains may have different causal relationships that can be analyzed using the same methodology.
+# MAGIC
+# MAGIC **Process Inputs → Measurements**
+# MAGIC - Worker & Machine → Position & Alignment
+# MAGIC   - Worker skill level and experience affects positioning precision
+# MAGIC   - Machine settings influence alignment accuracy
+# MAGIC
+# MAGIC - Raw Material & Material → Force & Torque
+# MAGIC   - Material properties from different suppliers require varying processing forces
+# MAGIC   - Raw material characteristics affect required torque levels
+# MAGIC
+# MAGIC - Environment → Temperature
+# MAGIC   - Chamber conditions (temperature, humidity, pressure) affect interface temperature
+# MAGIC   - Higher humidity may cause cooling through condensation
+# MAGIC
+# MAGIC **Measurements → Quality Checks**
+# MAGIC - Position & Alignment → Dimensions
+# MAGIC   - Misalignment leads to dimensional failures
+# MAGIC
+# MAGIC - Force & Torque → Quality Checks
+# MAGIC   - Insufficient force causes weak joints (fails torque check)
+# MAGIC   - Excessive force may cause dimensional issues
+# MAGIC
+# MAGIC - Temperature → Visual & Torque
+# MAGIC   - High temperatures can cause visible defects
+# MAGIC   - Low temperatures may result in weak bonds
+# MAGIC
+# MAGIC **Final Quality**
+# MAGIC - Any failed check (Dimensions, Torque, Visual) results in overall quality failure
+# MAGIC
+# MAGIC This causal graph structure allows us to trace quality issues back to their root causes. The same methodology can be applied to other processes by adapting the variables and relationships to the specific context.
 
 # COMMAND ----------
 

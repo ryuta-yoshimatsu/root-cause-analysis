@@ -20,19 +20,15 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Install graphviz from nicer visualization
-# MAGIC %sh 
-# MAGIC sudo apt-get -qq update
-# MAGIC sudo apt-get -y -qq install graphviz libgraphviz-dev
-
-# COMMAND ----------
-
 # MAGIC %md
-# MAGIC We install the required packages from the `requirements.txt`.
+# MAGIC ## Install Dependencies
 
 # COMMAND ----------
+# DBTITLE 1,Install graphviz from nicer visualization
+# MAGIC %sh
+# MAGIC apt-get update && apt-get install -y graphviz graphviz-dev
 
-# DBTITLE 1,Install requirements
+# COMMAND ----------
 # MAGIC %pip install -r ./requirements.txt --quiet
 # MAGIC dbutils.library.restartPython()
 
@@ -61,26 +57,20 @@ import dowhy
 import networkx as nx
 
 # COMMAND ----------
+user_name = spark.sql("SELECT current_user()").collect()[0][0]
+first_name = user_name.split(".")[0]
 
-catalog = 'causal_solacc'     # Change this to your catalog name
-schema = 'rca'                # Change this to your schema name
-model = "scm_manufacturing"   # Change this to your model name
+# Set up Unity Catalog
+catalog = f'causal_solacc_{first_name}'     # Change this to your catalog name
+schema = f'rca_{first_name}'                # Change this to your schema name
+model = f"manufacturing_{first_name}"   # Change this to your model name
 
-# Check if the catalog exists
-catalog_exists = spark.sql(f"SHOW CATALOGS LIKE '{catalog}'").count() > 0
-assert catalog_exists, f"Catalog {catalog} does not exist. Run the previous notebook: 01_causal_graph."
-
-# Check if the schema exists
-schema_exists = spark.sql(f"SHOW SCHEMAS IN {catalog} LIKE '{schema}'").count() > 0
-assert schema_exists, f"Schema {schema} does not exist in catalog {catalog}. Run the previous notebook: 01_causal_graph."
+setup_unity_catalog(catalog, schema)
 
 # COMMAND ----------
 
-# Get the current user name
-current_user_name = spark.sql("SELECT current_user()").collect()[0][0]
-
 # Set the experiment name
-experiment_name = f"/Users/{current_user_name}/rca_manufacturing"
+experiment_name = f"/Users/{user_name}/rca_manufacturing"
 mlflow.set_experiment(experiment_name)
 
 # COMMAND ----------
@@ -348,7 +338,7 @@ mlflow_client.set_registered_model_alias(registered_model_name, "champion", mode
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC © 2025 Databricks, Inc. All rights reserved. The source in this notebook is provided subject to the Databricks License. All included or referenced third party libraries are subject to the licenses set forth below.
+# MAGIC 2025 Databricks, Inc. All rights reserved. The source in this notebook is provided subject to the Databricks License. All included or referenced third party libraries are subject to the licenses set forth below.
 # MAGIC
 # MAGIC | library                                | description             | license    | source                                              |
 # MAGIC |----------------------------------------|-------------------------|------------|-----------------------------------------------------|

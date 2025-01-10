@@ -115,4 +115,44 @@ def generate_data(catalog, schema, n, p_worker=0.75, train=True):
 
 # COMMAND ----------
 
+def setup_unity_catalog(catalog, schema):
+    """
+    Set up Unity Catalog by creating or verifying the existence of a catalog and schema.
+    
+    Parameters:
+        catalog (str): The catalog name to create/verify
+        schema (str): The schema name to create/verify
+        
+    Raises:
+        ValueError: If catalog or schema cannot be created and don't exist
+    """
+    from databricks.sdk import WorkspaceClient
+    from databricks.sdk.errors import NotFound, PermissionDenied
+    
+    w = WorkspaceClient()
+    
+    # Create UC Catalog if it does not exist
+    try:
+        _ = w.catalogs.get(catalog)
+        print(f"PASS: UC catalog `{catalog}` exists")
+    except NotFound as e:
+        print(f"`{catalog}` does not exist, trying to create...")
+        try:
+            _ = w.catalogs.create(name=catalog)
+        except PermissionDenied as e:
+            print(f"FAIL: `{catalog}` does not exist, and no permissions to create. Please provide an existing UC Catalog.")
+            raise ValueError(f"Unity Catalog `{catalog}` does not exist.")
+            
+    # Create UC Schema if it does not exist
+    try:
+        _ = w.schemas.get(full_name=f"{catalog}.{schema}")
+        print(f"PASS: UC schema `{catalog}.{schema}` exists")
+    except NotFound as e:
+        print(f"`{catalog}.{schema}` does not exist, trying to create...")
+        try:
+            _ = w.schemas.create(name=schema, catalog_name=catalog)
+        except PermissionDenied as e:
+            print(f"FAIL: `{catalog}.{schema}` does not exist, and no permissions to create. Please provide an existing UC Schema.")
+            raise ValueError(f"Unity Catalog Schema `{catalog}.{schema}` does not exist.")
 
+# COMMAND ----------
