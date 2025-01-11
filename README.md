@@ -18,7 +18,7 @@ In this series of notebooks, we demonstrate how causal machine learning techniqu
 
 ## Authors
 
-<ryuta.yoshimatsu@databricks.com>
+<ryuta.yoshimatsu@databricks.com>, <homayoon.moradi@databricks.com>
 
 ## Project support 
 
