@@ -21,14 +21,12 @@
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Install and import dependencies
+# MAGIC ## Install dependencies
 
 # COMMAND ----------
 
 # DBTITLE 1,Install graphviz from nicer visualization
-# MAGIC %sh 
-# MAGIC sudo apt-get -qq update
-# MAGIC sudo apt-get -y -qq install graphviz libgraphviz-dev
+# MAGIC %sh apt-get update && apt-get install -y graphviz graphviz-dev
 
 # COMMAND ----------
 
@@ -65,16 +63,14 @@ import networkx as nx
 
 # COMMAND ----------
 
-catalog = 'causal_solacc'     # Change this to your catalog name
-schema = 'rca'                # Change this to your schema name
+user_name = spark.sql("SELECT current_user()").collect()[0][0]
+first_name = user_name.split(".")[0]
 
-# Check if the catalog exists
-catalog_exists = spark.sql(f"SHOW CATALOGS LIKE '{catalog}'").count() > 0
-assert catalog_exists, f"Catalog {catalog} does not exist. Run the previous notebook: 01_causal_graph."
+# Set up Unity Catalog
+catalog = f'causal_solacc_{first_name}'     # Change this to your catalog name
+schema = f'rca'                             # Change this to your schema name
 
-# Check if the schema exists
-schema_exists = spark.sql(f"SHOW SCHEMAS IN {catalog} LIKE '{schema}'").count() > 0
-assert schema_exists, f"Schema {schema} does not exist in catalog {catalog}. Run the previous notebook: 01_causal_graph."
+setup_unity_catalog(catalog, schema)
 
 # COMMAND ----------
 
@@ -157,10 +153,10 @@ display(samples)
 
 # COMMAND ----------
 
-import lime
+from lime.lime_tabular import LimeTabularExplainer
 
 # Use LIME to explain a prediction for a sample with quality = 1
-explainer = lime.lime_tabular.LimeTabularExplainer(
+explainer = LimeTabularExplainer(
   X_train.values, 
   feature_names=X_train.columns, 
   class_names=['quality'], 

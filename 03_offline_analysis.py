@@ -19,10 +19,13 @@
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC ## Install dependencies
+
+# COMMAND ----------
+
 # DBTITLE 1,Install graphviz from nicer visualization
-# MAGIC %sh 
-# MAGIC sudo apt-get -qq update
-# MAGIC sudo apt-get -y -qq install graphviz libgraphviz-dev
+# MAGIC %sh apt-get update && apt-get install -y graphviz graphviz-dev
 
 # COMMAND ----------
 
@@ -59,15 +62,17 @@ import numpy as np
 from dowhy import gcm
 
 # COMMAND ----------
+
 user_name = spark.sql("SELECT current_user()").collect()[0][0]
 first_name = user_name.split(".")[0]
 
 # Set up Unity Catalog
 catalog = f'causal_solacc_{first_name}'     # Change this to your catalog name
-schema = f'rca_{first_name}'                # Change this to your schema name
-model = f"manufacturing_{first_name}"   # Change this to your model name
+schema = f'rca'                             # Change this to your schema name
+model = f"manufacturing_rca"                # Change this to your model name
 
 setup_unity_catalog(catalog, schema)
+
 # COMMAND ----------
 
 # MAGIC %md

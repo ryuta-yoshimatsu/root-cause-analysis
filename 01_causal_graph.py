@@ -7,7 +7,7 @@
 # MAGIC %md
 # MAGIC # Define Causal Relationships
 # MAGIC
-# MAGIC In this first notebook, we will describe the example use case, generate a synthetic dataset, create a causal graph, and log that graph to MLflow.
+# MAGIC In this first notebook, we will describe the example use case, generate a synthetic dataset, and create a causal graph. Finally, we will log that graph to MLflow.
 
 # COMMAND ----------
 
@@ -21,14 +21,12 @@
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Install and import dependencies
+# MAGIC ## Install dependencies
 
 # COMMAND ----------
 
 # DBTITLE 1,Install graphviz from nicer visualization
-# MAGIC %sh 
-# MAGIC apt-get update && apt-get install -y graphviz graphviz-dev
-
+# MAGIC %sh apt-get update && apt-get install -y graphviz graphviz-dev
 
 # COMMAND ----------
 
@@ -66,13 +64,13 @@ import dowhy
 import networkx as nx
 
 # COMMAND ----------
+
 user_name = spark.sql("SELECT current_user()").collect()[0][0]
 first_name = user_name.split(".")[0]
 catalog = f'causal_solacc_{first_name}'     # Change this to your catalog name
-schema = f'rca_{first_name}'                # Change this to your schema name
+schema = f'rca'                             # Change this to your schema name
 
 setup_unity_catalog(catalog, schema)
-
 
 # COMMAND ----------
 
@@ -89,10 +87,10 @@ mlflow.set_experiment(experiment_name)
 # MAGIC
 # MAGIC The process flow shows how different factors influence product quality:
 # MAGIC
-# MAGIC 1. **Input Factors**: Raw Material feeds into four key components:
-# MAGIC    - Worker (manual operator)
-# MAGIC    - Machine settings
-# MAGIC    - Material properties
+# MAGIC 1. **Input Factors**:
+# MAGIC    - Worker (Manual Operator)
+# MAGIC    - Machine Settings
+# MAGIC    - Material Properties
 # MAGIC    - Environment* (Temperature, Pressure, Humidity in the Chamber)
 # MAGIC
 # MAGIC 2. **Process Measurements**:
@@ -105,7 +103,7 @@ mlflow.set_experiment(experiment_name)
 # MAGIC    - Torque Checks
 # MAGIC    - Visual Inspection
 # MAGIC
-# MAGIC These factors combine to determine the final Quality outcome. When quality drops unexpectedly, we'll use DoWhy to trace the root cause through these causal relationships.
+# MAGIC These factors combine to determine the final quality outcome. When quality drops unexpectedly, we'll use DoWhy to trace the root cause through these causal relationships.
 
 # COMMAND ----------
 
@@ -113,6 +111,7 @@ from IPython.display import Image, display
 display(Image('./images/manufacturing-process-A-simplified.png', width=1000))
 
 # COMMAND ----------
+
 # MAGIC %md
 # MAGIC ## Example Cause-Effect Relationships
 # MAGIC
@@ -135,10 +134,10 @@ display(Image('./images/manufacturing-process-A-simplified.png', width=1000))
 # MAGIC - Position & Alignment → Dimensions
 # MAGIC   - Misalignment leads to dimensional failures
 # MAGIC
-# MAGIC - Force & Torque → Quality Checks
-# MAGIC   - Insufficient force causes weak joints (fails torque check)
+# MAGIC - Force & Torque → Dimensions & Torque
 # MAGIC   - Excessive force may cause dimensional issues
-# MAGIC
+# MAGIC   - Insufficient force causes weak joints (fails torque check)
+# MAGIC   
 # MAGIC - Temperature → Visual & Torque
 # MAGIC   - High temperatures can cause visible defects
 # MAGIC   - Low temperatures may result in weak bonds
@@ -166,7 +165,7 @@ display(X)
 # MAGIC %md
 # MAGIC ## Generate a causal graph
 # MAGIC
-# MAGIC From these relationships, we will construct our causal graph using the `DiGraph` class from the `networkx` package. Here the package `graphviz` and `pygraphviz` give us a nicely formatted DAG show below. 
+# MAGIC From the relationships identified with our domain experts, we will construct our causal graph using the `DiGraph` class from the `networkx` package. Here the package `graphviz` and `pygraphviz` give us a nicely formatted DAG show below. 
 
 # COMMAND ----------
 
