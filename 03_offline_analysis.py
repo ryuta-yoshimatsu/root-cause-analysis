@@ -59,19 +59,15 @@ import numpy as np
 from dowhy import gcm
 
 # COMMAND ----------
+user_name = spark.sql("SELECT current_user()").collect()[0][0]
+first_name = user_name.split(".")[0]
 
-catalog = 'causal_solacc'     # Change this to your catalog name
-schema = 'rca'                # Change this to your schema name
-model = "scm_manufacturing"   # Change this to your model name
+# Set up Unity Catalog
+catalog = f'causal_solacc_{first_name}'     # Change this to your catalog name
+schema = f'rca_{first_name}'                # Change this to your schema name
+model = f"manufacturing_{first_name}"   # Change this to your model name
 
-# Check if the catalog exists
-catalog_exists = spark.sql(f"SHOW CATALOGS LIKE '{catalog}'").count() > 0
-assert catalog_exists, f"Catalog {catalog} does not exist. Run the previous notebook: 01_causal_graph."
-
-# Check if the schema exists
-schema_exists = spark.sql(f"SHOW SCHEMAS IN {catalog} LIKE '{schema}'").count() > 0
-assert schema_exists, f"Schema {schema} does not exist in catalog {catalog}. Run the previous notebook: 01_causal_graph."
-
+setup_unity_catalog(catalog, schema)
 # COMMAND ----------
 
 # MAGIC %md

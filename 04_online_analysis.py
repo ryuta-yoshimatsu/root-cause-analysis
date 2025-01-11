@@ -38,9 +38,13 @@ client = mlflow.tracking.MlflowClient()
 
 # COMMAND ----------
 
-catalog = "causal_solacc"
-schema = "rca"
-model = "scm_manufacturing"
+user_name = spark.sql("SELECT current_user()").collect()[0][0]
+first_name = user_name.split(".")[0]
+
+# Set up Unity Catalog
+catalog = f'causal_solacc_{first_name}'     # Change this to your catalog name
+schema = f'rca_{first_name}'                # Change this to your schema name
+model = f"manufacturing_{first_name}"   # Change this to your model name
 log_schema = "log" # A schema within the catalog where the inferece log is going to be stored 
 model_name = f"{catalog}.{schema}.{model}"  # An existing model in model registry, may have multiple versions
 model_serving_endpoint_name = f"root-cause-analysis-{model}"
