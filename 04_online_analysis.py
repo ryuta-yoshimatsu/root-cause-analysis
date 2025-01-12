@@ -8,18 +8,16 @@
 # MAGIC
 # MAGIC # Create a model serving endpoint for online causal analysis
 # MAGIC
-# MAGIC With our structural causal model now registered in Unity Catalog, the final step is deploying it behind a Model Serving endpoint. This setup is crucial for conducting online causal analyses, such as anomaly attribution, in real time. Identifying the root causes of defective products quickly helps minimize the costs associated with their impact.
+# MAGIC With our structural causal model registered in Unity Catalog, the final step is deploying it behind a Model Serving endpoint. This setup is crucial for conducting online causal analyses, such as anomaly attribution, in real time. Identifying the root causes of defective products quickly helps minimize the costs associated with their impact.
 # MAGIC
 # MAGIC This notebook demonstrates how to streamline Python-based model serving workflows. It uses [Databricks SDK](https://docs.databricks.com/en/dev-tools/sdk-python.html) for creating a model serving endpoint, updating the endpoint configuration to use specific model versions, making prediction requests, and deleting endpoints when needed.
+# MAGIC
+# MAGIC See the notebook `01_causal_graph` for a recommended cluster configuration.
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cluster configuration
-# MAGIC We recommend using a cluster with the following or similar specifications to run this solution accelerator:
-# MAGIC - Unity Catalog enabled cluster
-# MAGIC - Databricks Runtime 15.4 LTS ML or above
-# MAGIC - Single-node cluster: e.g. `m5d.2xlarge` on AWS or `Standard_D8ds_v5` on Azure Databricks
+# MAGIC %pip install dowhy==0.12 --quiet
+# MAGIC dbutils.library.restartPython()
 
 # COMMAND ----------
 
@@ -56,8 +54,6 @@ model_serving_endpoint_name = f"{model}_{first_name}"
 # MAGIC Based on your latency and throughput requirements, it’s important to select the appropriate `workload_type` and `workload_size`. The `auto_capture_config` block defines where to store inference logs, including the requests and responses from the endpoint, along with their timestamps.
 
 # COMMAND ----------
-
-import requests
 
 # Get the champion model version
 champion_version = client.get_model_version_by_alias(model_name, "champion")
@@ -222,17 +218,10 @@ display(result)
 
 # COMMAND ----------
 
-import matplotlib.pyplot as plt
+import dowhy
 
-plt.figure(figsize=(10, 6))
-pd.Series(result).plot(kind='bar', color='red', edgecolor='black')
-plt.title('Anomaly Attribution', fontsize=16)
-plt.xlabel('Features', fontsize=14)
-plt.ylabel('Importance', fontsize=14)
-plt.xticks(rotation=45, ha='right')
-plt.grid(axis='y', linestyle='--', alpha=0.7)
-plt.tight_layout()
-plt.show()
+# Plot the anomaly attribution scores
+dowhy.utils.bar_plot({k: v for k, v in result.items()}, ylabel='Anomaly attribution score')
 
 # COMMAND ----------
 

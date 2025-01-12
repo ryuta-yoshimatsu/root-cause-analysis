@@ -7,16 +7,14 @@
 # MAGIC %md
 # MAGIC # Fit Causal Models to Data
 # MAGIC
-# MAGIC In this notebook, we will assign causal mechanisms to the causal graph defined in the previous notebook. Next, we will evaluate the fitted graph to determine how well it represents the underlying data generation process. Finally, we will register the fitted graph with MLflow for future use.
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Cluster configuration
-# MAGIC We recommend using a cluster with the following or similar specifications to run this solution accelerator:
-# MAGIC - Unity Catalog enabled cluster
-# MAGIC - Databricks Runtime 15.4 LTS ML or above
-# MAGIC - Single-node cluster: e.g. `m5d.2xlarge` on AWS or `Standard_D8ds_v5` on Azure Databricks
+# MAGIC In this second notebook, we will:
+# MAGIC
+# MAGIC 1. Assign causal mechanisms to the causal graph defined in the previous notebook.
+# MAGIC 2. Fit the causal models identified in the previous step to the causal graph.
+# MAGIC 3. Evaluate the fitted graph to assess how well it represents the underlying data generation process.
+# MAGIC 4. Register the fitted graph to Unity Catalog using MLflow for future use.
+# MAGIC
+# MAGIC See the notebook `01_causal_graph` for a recommended cluster configuration.
 
 # COMMAND ----------
 
@@ -82,7 +80,7 @@ mlflow.set_experiment(experiment_name)
 # MAGIC
 # MAGIC Now, let's load the causal graph defined in the previous notebook. We will integrate this graph with generative models that describe the data generation process at each node to construct a structural causal model (SCM).
 # MAGIC
-# MAGIC The causal graph can be loaded using:
+# MAGIC The causal graph can be loaded using MLflow:
 
 # COMMAND ----------
 
@@ -144,7 +142,6 @@ pdf = sdf.toPandas()
 
 # Display the first few rows of the pandas DataFrame
 pdf.head()
-
 
 # COMMAND ----------
 
@@ -218,20 +215,20 @@ print(
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC The above graph provides strong evidence that the causal graph structure identified in the model is capturing real and meaningful relationships in the data, rather than random associations. The extremely low p-values and clear separation between the original and permuted graphs suggest that the causal model has successfully identified genuine structural relationships in the system being studied.
-# MAGIC
 # MAGIC Broadly, the `gcm.evaluate_causal_model` method performs four types of evaluations on the fitted graph: evaluation of causal mechanisms, assessment of the invertible functional causal model assumption, evaluation of the generated distribution, and analysis of the causal graph structure. While we won't delve into the details of these tests here, we encourage users to check DoWhy's [documentation](https://www.pywhy.org/dowhy/v0.11.1/user_guide/modeling_gcm/model_evaluation.html) and [source code](https://github.com/py-why/dowhy/blob/main/dowhy/gcm/model_evaluation.py) for a deeper understanding.
 # MAGIC
-# MAGIC In our case, using a synthetically generated dataset, the fitted causal mechanisms largely align well with the data generation process. However, in real-world scenarios, datasets are often messier, have smaller sample sizes, or exhibit lower signal-to-noise ratios. In addition, the graph might be missing key confounders. For these reasons, it’s crucial to understand the evaluation techniques mentioned above and recognize how each test addresses specific issues.
+# MAGIC In our case, using a synthetically generated dataset, the fitted causal mechanisms largely align well with the data generation process. The above graph provides strong evidence that the causal graph structure identified in the model is capturing real and meaningful relationships in the data, rather than random associations. The extremely low p-values and clear separation between the original and permuted graphs suggest that the causal graph has successfully identified genuine structural relationships in the system being studied. 
 # MAGIC
-# MAGIC If the evaluation results indicate signs of misspecification, you can choose to revisit steps such as data collection, causal discovery, or modeling of causal mechanisms, or proceed with your analysis despite the issues. The output cell above states that the evaluations provide insights into the quality of the causal model but should not be overinterpreted, as some causal relationships are inherently challenging to model. Additionally, many algorithms demonstrate robustness to misspecifications or suboptimal performance of causal mechanisms.
+# MAGIC However, in real-world scenarios, datasets are often messier, have smaller sample sizes, or exhibit lower signal-to-noise ratios. In addition, the graph might be missing key confounders. For these reasons, it’s crucial to understand the evaluation techniques mentioned above and recognize how each test addresses specific issues.
+# MAGIC
+# MAGIC If the evaluation results indicate signs of misspecification, you can choose to revisit steps such as data collection, causal discovery, or modeling of causal mechanisms, or proceed with your analysis despite the issues. The evaluations provide insights into the quality of the causal model but they should not be overinterpreted, as some causal relationships are inherently challenging to model. Additionally, many algorithms demonstrate robustness to misspecifications or suboptimal performance of causal mechanisms.
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ## Register the fitted causal graph to Unity Catalog using MLflow
 # MAGIC
-# MAGIC Once we are satisfied with our causal model, we can register it with Unity Catalog to ensure proper governance. Later, we will load this model to perform causal analysis. While MLflow does not natively support the `gcm.StructuralCausalModel` (SCM) object, this is not a problem. We can simply wrap the SCM object using `mlflow.pyfunc.PythonModel` and log it in MLflow instead.
+# MAGIC Once we are satisfied with our causal models, we can register it with Unity Catalog to ensure proper governance. Later, we will load this model to perform causal analysis. MLflow does not natively support the `gcm.StructuralCausalModel` (SCM) object, but we can simply wrap the SCM object using `mlflow.pyfunc.PythonModel` and log it with MLflow instead.
 
 # COMMAND ----------
 
@@ -311,7 +308,7 @@ with mlflow.start_run(run_name="causal_model") as run:
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC Let's assign the "champion" alias to the newly registered model. This makes it easier to load this specific version later by referencing the alias directly.
+# MAGIC Let's assign the "champion" alias to the newly registered model. This makes it easier to load this specific version later.
 
 # COMMAND ----------
 
@@ -337,7 +334,9 @@ mlflow_client.set_registered_model_alias(registered_model_name, "champion", mode
 # MAGIC %md
 # MAGIC ## Wrap up
 # MAGIC
-# MAGIC This concludes the second notebook. Here, we assigned causal mechanisms to the causal graph defined in the previous notebook. We then evaluated the fitted graph to assess how well it captures the underlying data generation process. Finally, we registered the fitted graph using MLflow for future use. In the next notebook, we will leverage the fitted graph to conduct causal analyses.
+# MAGIC This concludes the second notebook. Here, we assigned causal mechanisms to the causal graph defined in the previous notebook. We then fitted the graph on the dataset and evaluated the fitted graph to assess how well it captures the underlying data generation process. Finally, we registered the fitted graph in Unity Catalog using MLflow for future use. 
+# MAGIC
+# MAGIC In the next notebook, we will leverage the fitted graph to conduct causal analyses.
 
 # COMMAND ----------
 

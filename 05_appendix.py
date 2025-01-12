@@ -7,16 +7,9 @@
 # MAGIC %md
 # MAGIC # Appendix
 # MAGIC
-# MAGIC In this notebook, we explore two additional topics that are not immediately required for using the solution accelerator, hence appendix. The first focuses on automated or semi-automated causal discovery, and the second examines correlational machine learning and its explainability of causal factors.
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Cluster configuration
-# MAGIC We recommend using a cluster with the following or similar specifications to run this solution accelerator:
-# MAGIC - Unity Catalog enabled cluster
-# MAGIC - Databricks Runtime 15.4 LTS ML or above
-# MAGIC - Single-node cluster: e.g. `m5d.2xlarge` on AWS or `Standard_D8ds_v5` on Azure Databricks
+# MAGIC In this notebook, we explore two additional topics that are not immediately required for using the solution accelerator. The first focuses on automated or semi-automated causal discovery, and the second examines correlational machine learning and its explainability of causal factors.
+# MAGIC
+# MAGIC See the notebook `01_causal_graph` for a recommended cluster configuration.
 
 # COMMAND ----------
 

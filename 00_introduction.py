@@ -16,7 +16,7 @@
 # MAGIC %md
 # MAGIC ## Challenges with traditional machine learning approaches
 # MAGIC
-# MAGIC Many manufacturers rely on traditional machine learning techniques based on correlations to address this problem. However, these techniques have significant limitations in root cause analysis due to their inability to capture causality. They often fail to distinguish true root causes from mere symptoms, oversimplifying complex manufacturing processes into tabular data while neglecting the manufacturing process flow. By prioritizing predictive power over causal understanding, these algorithms risk misidentifying root causes. Consequently, they can lead to misleading conclusions. See the section `Appendix B` in the notebook `05_appendix` for more information.
+# MAGIC Many manufacturers rely on traditional machine learning techniques based on correlations to address this problem. However, these techniques have significant limitations in root cause analysis due to their inability to capture causality. They often fail to distinguish true root causes from mere symptoms, oversimplifying complex manufacturing processes into tabular data while neglecting the manufacturing process flows. By prioritizing predictive power over causal understanding, these algorithms risk misidentifying root causes. Consequently, they can lead to misleading conclusions. See the section `Appendix B` in the notebook `05_appendix` for more information.
 
 # COMMAND ----------
 
@@ -30,7 +30,7 @@
 # MAGIC %md
 # MAGIC ## Case study
 # MAGIC
-# MAGIC In this series of notebooks, we demonstrate how causal machine learning techniques can be applied to perform root cause analysis in a manufacturing process. We create a fictitious scenario where we are responsible for reducing costs and optimizing the efficiency of a production line. Through this setup, we explore how various factors influence the quality of processed products.
+# MAGIC In this series of notebooks, we demonstrate how causal AI can be applied to perform root cause analysis in a manufacturing process. We create a fictitious scenario where we are responsible for reducing costs and optimizing the efficiency of a production line. Through this setup, we explore how various factors influence the quality of final products.
 # MAGIC
 # MAGIC <img src="images/manufacturing-process-A.png" alt="Simplified Flow Between Production Line Processes" width="1000">
 # MAGIC
