@@ -7,7 +7,12 @@
 # MAGIC %md
 # MAGIC # Define Causal Relationships
 # MAGIC
-# MAGIC In this first notebook, we will describe the example use case, generate a synthetic dataset, and create a causal graph. Finally, we will log that graph to MLflow.
+# MAGIC In this first notebook, we will:
+# MAGIC
+# MAGIC 1. Understand the use case.
+# MAGIC 2. Generate a synthetic dataset.
+# MAGIC 3. Construct a causal graph.
+# MAGIC 4. Log the graph to MLflow.
 
 # COMMAND ----------
 
@@ -81,9 +86,9 @@ mlflow.set_experiment(experiment_name)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Case Study
+# MAGIC ## Use Case
 # MAGIC
-# MAGIC In this example, we analyze a manufacturing process to identify root causes of quality issues using Graphical Causal Models (GCM) from DoWhy.
+# MAGIC Our goal with causal AI is to identify the true root causes behind a drop in quality, whether in a specific product or a batch of products. This enables us to implement effective measures to counteract these quality deviations, prevent recurrence, minimize waste, and improve overall product quality. In the notebooks, we will explore how to achieve this for a specific manufacturing process shown below. 
 # MAGIC
 # MAGIC The process flow shows how different factors influence product quality:
 # MAGIC
@@ -191,6 +196,11 @@ dowhy.gcm.util.plot(true_graph, figure_size=(20, 20))
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC We established the causal relationships between our variables in collaboration with domain experts. However, this process is not always straightforward, as scheduling time with experts can be costly, and even they may not have full knowledge of all the details. In such situations, we can turn to automated causal discovery algorithms. While these algorithms typically do not produce a perfect graph, they can serve as a valuable starting point. For more details, refer to the section `Appendix A` in the notebook `05_appendix`.
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ## Log the causal graph to MLflow
 # MAGIC
 # MAGIC Because this graph will be used in subsequent notebooks, we will log it as an artifact using `MLflow`.
@@ -210,7 +220,9 @@ with mlflow.start_run(run_name="causal_graph") as run:
 # MAGIC %md
 # MAGIC ## Wrap up
 # MAGIC
-# MAGIC In this notebook, we explored the example use case of manufacturing production line, generated a synthetic dataset, created a causal graph, and logged that graph to MLflow.
+# MAGIC In this notebook, we explored a manufacturing production line as an example use case. We generated a synthetic dataset, created a causal graph, and logged the graph using MLflow. These steps reflect the initial stages of a causal AI project for root cause analysis: understanding the use case, collecting data, gathering insights from domain experts and establishing causal relationships while logging all created artifacts along the way.
+# MAGIC
+# MAGIC In the next notebook, `02_causal_modeling`, we will delve into integrating the causal graph with observational data (in our case, the synthetic dataset).
 
 # COMMAND ----------
 

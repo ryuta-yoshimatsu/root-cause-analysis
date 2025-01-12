@@ -52,7 +52,7 @@ def generate_data(catalog, schema, n, p_worker=0.75, train=True):
     #   worker 1 is less precise than worker 0
     #   machine 1 is less precise than machine 0
     X['position_alignment'] = (
-        0.1 + norm.rvs(loc=0, scale=0.01, size=n)  # const + noise
+        0.1 + norm.rvs(loc=0, scale=0.005, size=n)  # const + noise
         + halfnorm.rvs(loc=0.1, scale=0.01, size=n) * X['worker']
         + halfnorm.rvs(loc=0.1, scale=0.01, size=n) * X['machine']
     )
@@ -154,5 +154,3 @@ def setup_unity_catalog(catalog, schema):
         except PermissionDenied as e:
             print(f"FAIL: `{catalog}.{schema}` does not exist, and no permissions to create. Please provide an existing UC Schema.")
             raise ValueError(f"Unity Catalog Schema `{catalog}.{schema}` does not exist.")
-
-# COMMAND ----------
