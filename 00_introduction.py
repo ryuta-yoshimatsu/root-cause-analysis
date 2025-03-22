@@ -35,8 +35,6 @@
 # MAGIC <img src="images/manufacturing-process-A.png" alt="Simplified Flow Between Production Line Processes" width="1000">
 # MAGIC
 # MAGIC Above is a schematic representation of our production line. While real-world production lines are often far more complex and involve significantly larger number of variables, this simplified case serves as a practical starting point for building intuition about the technique.
-# MAGIC
-# MAGIC With that, enjoy exploring the rest of the notebooks!
 
 # COMMAND ----------
 

@@ -281,6 +281,7 @@ with mlflow.start_run(run_name="causal_model") as run:
         pip_requirements=[
             "dowhy==" + dowhy.__version__,  # Log required package versions
             "pandas==" + pd.__version__,
+            "numpy==" + np.__version__,
             "scikit-learn==" + sklearn.__version__,
         ],
         signature=signature,  # Log the inferred input-output signature
